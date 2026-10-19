@@ -1,0 +1,7 @@
+[package]
+name = "typst-components"
+version = "0.1.0"
+entrypoint = "src/lib.typ"
+authors = ["Marini Mattia"]
+license = "MIT"
+description = "Reusable document components for the Liceo Russell Typst materials."
