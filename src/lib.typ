@@ -1,6 +1,6 @@
 // typst-components — reusable blocks built on top of typst-theme.
 
-#import "../../typst-theme/src/lib.typ": etichetta, font-mono, palette
+#import "../../typst-theme/src/lib.typ": etichetta, font-mono, palette, sezione-corrente
 
 // ------------------------------------------------------------
 //  Stars and answer lines
@@ -130,6 +130,32 @@
   #text(fill: luma(125), style: "italic")[Nessuna risposta consegnata.]
 ]
 
+/// Items registered by `quesito`, grouped automatically by section.
+#let registro-quesiti = state("registro-quesiti", ())
+
+/// Items registered by `risposta`, grouped automatically by section.
+#let registro-risposte = state("registro-risposte", ())
+
+#let raggruppa-per-sezione(voci) = {
+  let gruppi = ()
+  for voce in voci {
+    let key = repr(voce.heading)
+    let idx = gruppi.position(g => g.key == key)
+    if idx == none {
+      gruppi = gruppi + ((key: key, titolo: voce.heading, voci: (voce,)),)
+    } else {
+      let gruppo = gruppi.at(idx)
+      let aggiornato = (
+        key: key,
+        titolo: gruppo.titolo,
+        voci: gruppo.voci + (voce,),
+      )
+      gruppi = gruppi.slice(0, idx) + (aggiornato,) + gruppi.slice(idx + 1)
+    }
+  }
+  gruppi
+}
+
 #let testata(
   tag,
   numero,
@@ -202,6 +228,19 @@
   let contatore = counter("quesito-" + category)
   if numero == auto { contatore.step() }
 
+  context {
+    let n = if numero == auto { contatore.get().first() } else { numero }
+    let sezione = sezione-corrente.get()
+    registro-quesiti.update(voci => voci + ((
+      category: category,
+      tag: tag,
+      title: title,
+      max: points,
+      numero: n,
+      heading: sezione,
+    ),))
+  }
+
   let etichetta-numero = if numero == auto {
     context contatore.display()
   } else {
@@ -239,6 +278,20 @@
 ) = {
   let contatore = counter("risposta-" + category)
   if numero == auto { contatore.step() }
+
+  context {
+    let n = if numero == auto { contatore.get().first() } else { numero }
+    let sezione = sezione-corrente.get()
+    registro-risposte.update(voci => voci + ((
+      category: category,
+      tag: tag,
+      title: title,
+      max: points,
+      got: score,
+      numero: n,
+      heading: sezione,
+    ),))
+  }
 
   let etichetta-numero = if numero == auto {
     context contatore.display()
@@ -385,6 +438,89 @@
           ],
         )
       ],
+    )
+  ]
+}
+
+/// Automatic summary of a test: one row per item and the sum of the points.
+#let griglia-punteggi() = context {
+  let voci = registro-quesiti.get()
+  let gruppi = raggruppa-per-sezione(voci)
+  let totale = voci.fold(0, (acc, voce) => acc + voce.max)
+
+  block(breakable: false, width: 100%)[
+    #table(
+      columns: (auto, 1fr, auto),
+      inset: (x: 9pt, y: 5pt),
+      align: (left, left, right),
+      stroke: 0.5pt + luma(215),
+      table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
+      ..gruppi
+        .map(gruppo => {
+          let titolo = if gruppo.titolo == none { "Quesiti" } else { gruppo.titolo }
+          let header = table.cell(
+            colspan: 3,
+            fill: palette.tint,
+            inset: (x: 9pt, y: 6pt),
+            align: left,
+          )[#text(weight: 800, fill: palette.accent-dark)[#titolo]]
+          let righe = gruppo.voci
+            .map(voce => (
+              [#(voce.category + str(voce.numero))],
+              if voce.title == none { [] } else { voce.title },
+              text(weight: 700)[#fmt-punti(voce.max)],
+            ))
+            .flatten()
+          (header,) + righe
+        })
+        .flatten(),
+      table.cell(colspan: 2, align: right)[*Totale*],
+      text(weight: 800)[#fmt-punti(totale) punti],
+    )
+  ]
+}
+
+/// Automatic summary of a correction: awarded/max per item, total and grade.
+#let griglia-correzione(base: 100) = context {
+  let voci = registro-risposte.get()
+  let gruppi = raggruppa-per-sezione(voci)
+  let totale = voci.fold(0, (acc, voce) => acc + voce.got)
+  let massimo = voci.fold(0, (acc, voce) => acc + voce.max)
+  let voto = calc.min(totale, base) / 10
+  let lode = totale > base
+
+  block(breakable: false, width: 100%)[
+    #table(
+      columns: (auto, 1fr, auto),
+      inset: (x: 9pt, y: 5pt),
+      align: (left, left, right),
+      stroke: 0.5pt + luma(215),
+      table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
+      ..gruppi
+        .map(gruppo => {
+          let titolo = if gruppo.titolo == none { "Quesiti" } else { gruppo.titolo }
+          let header = table.cell(
+            colspan: 3,
+            fill: palette.tint,
+            inset: (x: 9pt, y: 6pt),
+            align: left,
+          )[#text(weight: 800, fill: palette.accent-dark)[#titolo]]
+          let righe = gruppo.voci
+            .map(voce => (
+              [#(voce.category + str(voce.numero))],
+              if voce.title == none { [] } else { voce.title },
+              text(weight: 700)[
+                #fmt-punti(voce.got) / #fmt-punti(voce.max)
+              ],
+            ))
+            .flatten()
+          (header,) + righe
+        })
+        .flatten(),
+      table.cell(colspan: 2, align: right)[*Totale*],
+      text(weight: 800)[#fmt-punti(totale) / #fmt-punti(massimo)],
+      table.cell(colspan: 2, align: right)[*Voto in decimi*],
+      text(weight: 800)[#fmt-voto(voto) / 10 #if lode [ e lode]],
     )
   ]
 }
