@@ -1,6 +1,6 @@
 // typst-components — reusable blocks built on top of typst-theme.
 
-#import "../../typst-theme/src/lib.typ": palette, font-mono, etichetta
+#import "../../typst-theme/src/lib.typ": etichetta, font-mono, palette
 
 // ------------------------------------------------------------
 //  Stars and answer lines
@@ -82,7 +82,7 @@
   width: 100%,
   fill: palette.tint,
   stroke: (left: 2.6pt + palette.accent),
-  radius: (top-right: 4pt, bottom-right: 4pt),
+  radius: (top-right: 3pt, bottom-right: 3pt),
   inset: (x: 11pt, y: 9pt),
 )[
   #stack(
@@ -98,7 +98,7 @@
   width: 100%,
   fill: palette.tint,
   stroke: 0.6pt + luma(222),
-  radius: 4pt,
+  radius: 3pt,
   inset: 10pt,
 )[
   #stack(
@@ -110,95 +110,284 @@
 ]
 
 // ------------------------------------------------------------
-//  Question / exercise headers
+//  Question / exercise components
 // ------------------------------------------------------------
 
-#let domanda(n, titolo, punti, righe, corpo) = block(
-  breakable: false,
+/// Format a score using the Italian decimal comma.
+#let fmt-punti(x) = str(x).replace(".", ",")
+
+/// Format a grade in tenths with one decimal digit.
+#let fmt-voto(x) = fmt-punti(calc.round(x, digits: 1))
+
+/// Placeholder shown when a student did not submit an answer.
+#let nessuna-risposta = block(
   width: 100%,
+  fill: luma(249),
+  stroke: (paint: luma(195), thickness: 0.6pt, dash: "dotted"),
+  radius: 3pt,
+  inset: (x: 10pt, y: 8pt),
 )[
-  #stack(
-    dir: ttb,
-    spacing: 0.9em,
-    block(
-      width: 100%,
-      fill: palette.tint,
-      radius: (top-right: 3pt, bottom-right: 3pt),
-      inset: 8pt,
-      stroke: (left: 2.6pt + palette.accent),
-    )[
-      #grid(
-        columns: (auto, 1fr, auto),
-        column-gutter: 8pt,
-        align: horizon,
-        box(fill: palette.accent, inset: (x: 6pt, y: 2.5pt), radius: 999pt)[
-          #text(fill: white, size: 0.78em, weight: 700)[Domanda #n]
-        ],
-        text(weight: 700, size: 12pt, fill: palette.ink)[#titolo],
-        text(weight: 700, fill: palette.accent-dark)[#punti punti],
-      )
-    ],
-    corpo,
-    v(0.75cm),
-    righe-risposta(righe),
-  )
+  #text(fill: luma(125), style: "italic")[Nessuna risposta consegnata.]
 ]
 
-#let esercizio(n, titolo, punti, diff, corpo) = [
-  #block(
+#let testata(
+  tag,
+  numero,
+  titolo,
+  diff: none,
+  massimo: 0,
+  ottenuto: none,
+) = {
+  let badge = box(
+    fill: palette.accent,
+    inset: (x: 6pt, y: 2.5pt),
+    radius: 3pt,
+  )[#text(fill: white, size: 0.78em, weight: 700)[#tag #numero]]
+
+  let testo-titolo = if titolo == none {
+    []
+  } else {
+    text(weight: 700, size: 12pt, fill: palette.ink)[#titolo]
+  }
+
+  let testo-punti = if ottenuto == none {
+    text(weight: 700, fill: palette.accent-dark)[#fmt-punti(massimo) punti]
+  } else {
+    text(weight: 700, fill: palette.accent-dark)[
+      #fmt-punti(ottenuto) / #fmt-punti(massimo) punti
+    ]
+  }
+
+  let celle = if diff == none {
+    (badge, testo-titolo, testo-punti)
+  } else {
+    (badge, testo-titolo, stelle(diff), testo-punti)
+  }
+
+  block(
     width: 100%,
     fill: palette.tint,
     radius: (top-right: 3pt, bottom-right: 3pt),
     inset: 8pt,
     stroke: (left: 2.6pt + palette.accent),
-    below: 0.9em,
   )[
     #grid(
-      columns: (auto, 1fr, auto, auto),
+      columns: if diff == none { (auto, 1fr, auto) } else { (auto, 1fr, auto, auto) },
       column-gutter: 8pt,
       align: horizon,
-      box(fill: palette.accent, inset: (x: 6pt, y: 2.5pt), radius: 999pt)[
-        #text(fill: white, size: 0.78em, weight: 700)[Esercizio #n]
-      ],
-      text(weight: 700, size: 12pt, fill: palette.ink)[#titolo],
-      stelle(diff),
-      text(weight: 700, fill: palette.accent-dark)[#punti punti],
+      ..celle,
     )
   ]
-  #corpo
-]
+}
 
-#let lettura(n, titolo, punti, diff, righe, corpo) = block(
+/// Single component for theory questions, exercises and code snippets.
+///
+/// - `category`: short code used in the summary (e.g. `"D"`, `"E"`, `"S"`)
+/// - `tag`: label shown in the badge (e.g. `"Domanda"`)
+/// - `title`: item title
+/// - `diff`: number of difficulty stars, or `none`
+/// - `points`: maximum score
+/// - `righe`: number of answer lines, or `none`
+/// - `numero`: explicit number; when `auto` a counter per category is used
+#let quesito(
+  corpo,
+  category: "D",
+  tag: "Domanda",
+  title: none,
+  diff: none,
+  points: 0,
+  righe: none,
+  numero: auto,
+) = {
+  let contatore = counter("quesito-" + category)
+  if numero == auto { contatore.step() }
+
+  let etichetta-numero = if numero == auto {
+    context contatore.display()
+  } else {
+    numero
+  }
+
+  let contenuto = [
+    #testata(tag, etichetta-numero, title, diff: diff, massimo: points)
+    #v(0.9em)
+    #corpo
+    #if righe != none [
+      #v(0.75cm)
+      #righe-risposta(righe)
+    ]
+  ]
+
+  if righe == none {
+    contenuto
+  } else {
+    block(breakable: false, width: 100%)[#contenuto]
+  }
+}
+
+/// Answer component used in corrections. Same fields as `quesito`, plus
+/// `score` (points awarded).
+#let risposta(
+  corpo,
+  category: "D",
+  tag: "Domanda",
+  title: none,
+  diff: none,
+  points: 0,
+  score: 0,
+  numero: auto,
+) = {
+  let contatore = counter("risposta-" + category)
+  if numero == auto { contatore.step() }
+
+  let etichetta-numero = if numero == auto {
+    context contatore.display()
+  } else {
+    numero
+  }
+
+  block(breakable: false, width: 100%)[
+    #testata(
+      tag,
+      etichetta-numero,
+      title,
+      diff: diff,
+      massimo: points,
+      ottenuto: score,
+    )
+    #v(0.55em)
+    #sezione(
+      "Risposta",
+      if corpo == none { nessuna-risposta } else { corpo },
+    )
+  ]
+}
+
+// Backward-compatible wrappers for existing documents.
+#let domanda(n, titolo, punti, righe, corpo) = quesito(
+  corpo,
+  category: "D",
+  tag: "Domanda",
+  title: titolo,
+  points: punti,
+  righe: righe,
+  numero: n,
+)
+
+#let esercizio(n, titolo, punti, diff, corpo) = quesito(
+  corpo,
+  category: "E",
+  tag: "Esercizio",
+  title: titolo,
+  diff: diff,
+  points: punti,
+  numero: n,
+)
+
+#let lettura(n, titolo, punti, diff, righe, corpo) = quesito(
+  corpo,
+  category: "S",
+  tag: "Snippet",
+  title: titolo,
+  diff: diff,
+  points: punti,
+  righe: righe,
+  numero: n,
+)
+
+#let risposta-domanda(n, titolo, punti, totale, corpo) = risposta(
+  corpo,
+  category: "D",
+  tag: "Domanda",
+  title: titolo,
+  points: totale,
+  score: punti,
+  numero: n,
+)
+
+#let risposta-esercizio(n, titolo, punti, totale, diff, corpo) = risposta(
+  corpo,
+  category: "E",
+  tag: "Esercizio",
+  title: titolo,
+  diff: diff,
+  points: totale,
+  score: punti,
+  numero: n,
+)
+
+#let risposta-snippet(n, titolo, punti, totale, diff, corpo) = risposta(
+  corpo,
+  category: "S",
+  tag: "Snippet",
+  title: titolo,
+  diff: diff,
+  points: totale,
+  score: punti,
+  numero: n,
+)
+
+/// Small comment shown under a corrected answer.
+#let commento(corpo) = block(
   breakable: false,
   width: 100%,
+  fill: luma(248),
+  stroke: (left: 2pt + luma(185)),
+  inset: (x: 9pt, y: 6pt),
+  above: 1.1em,
+  below: 1.1em,
 )[
-  #stack(
-    dir: ttb,
-    spacing: 0.9em,
-    block(
-      width: 100%,
-      fill: palette.tint,
-      radius: (top-right: 3pt, bottom-right: 3pt),
-      inset: 8pt,
-      stroke: (left: 2.6pt + palette.accent),
-    )[
-      #grid(
-        columns: (auto, 1fr, auto, auto),
-        column-gutter: 8pt,
-        align: horizon,
-        box(fill: palette.accent, inset: (x: 6pt, y: 2.5pt), radius: 999pt)[
-          #text(fill: white, size: 0.78em, weight: 700)[Snippet #n]
-        ],
-        text(weight: 700, size: 12pt, fill: palette.ink)[#titolo],
-        stelle(diff),
-        text(weight: 700, fill: palette.accent-dark)[#punti punti],
-      )
-    ],
-    corpo,
-    v(0.75cm),
-    righe-risposta(righe),
-  )
+  #text(fill: luma(85))[
+    #text(weight: 700)[Commento.] #corpo
+  ]
 ]
+
+/// Header for a correction sheet.
+#let intestazione-correzione(
+  studente,
+  totale,
+  title: "Correzione verifica",
+  subtitle: "",
+  massimo: 110,
+  base: 100,
+) = {
+  let voto = calc.min(totale, base) / 10
+  let lode = totale > base
+
+  block(
+    width: 100%,
+    fill: palette.tint,
+    stroke: (left: 2.6pt + palette.accent),
+    radius: (top-right: 3pt, bottom-right: 3pt),
+    inset: (x: 12pt, y: 10pt),
+  )[
+    #grid(
+      columns: (1fr, auto),
+      column-gutter: 14pt,
+      align: horizon,
+      stack(
+        dir: ttb,
+        spacing: 0.8em,
+        etichetta(title),
+        text(size: 18pt, weight: 800, fill: palette.ink)[#studente],
+        text(size: 9.5pt, fill: luma(110))[#subtitle],
+      ),
+      align(right)[
+        #stack(
+          dir: ttb,
+          spacing: 0.8em,
+          etichetta("Punteggio"),
+          text(size: 19pt, weight: 800, fill: palette.accent-dark)[
+            #fmt-punti(totale) / #fmt-punti(massimo)
+          ],
+          text(size: 10.5pt, weight: 700)[
+            Voto #fmt-voto(voto) / 10 #if lode [ e lode]
+          ],
+        )
+      ],
+    )
+  ]
+}
 
 // ------------------------------------------------------------
 //  Cover
