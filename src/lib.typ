@@ -156,6 +156,12 @@
   gruppi
 }
 
+#let badge(fill: palette.accent, corpo) = box(
+  fill: fill,
+  inset: (x: 6pt, y: 2.5pt),
+  radius: 3pt,
+)[#text(fill: white, size: 0.78em, weight: 700)[#corpo]]
+
 #let testata(
   tag,
   numero,
@@ -164,11 +170,7 @@
   massimo: 0,
   ottenuto: none,
 ) = {
-  let badge = box(
-    fill: palette.accent,
-    inset: (x: 6pt, y: 2.5pt),
-    radius: 3pt,
-  )[#text(fill: white, size: 0.78em, weight: 700)[#tag #numero]]
+  let left-badge = badge([#tag #numero])
 
   let testo-titolo = if titolo == none {
     []
@@ -185,9 +187,9 @@
   }
 
   let celle = if diff == none {
-    (badge, testo-titolo, testo-punti)
+    (left-badge, testo-titolo, testo-punti)
   } else {
-    (badge, testo-titolo, stelle(diff), testo-punti)
+    (left-badge, testo-titolo, stelle(diff), testo-punti)
   }
 
   block(
@@ -398,12 +400,25 @@
 /// Totals computed from every `risposta` in the document.
 ///
 /// Uses `state.final()` so it can be called before the answers are laid out.
-#let totali-risposte() = {
-  let voci = registro-risposte.final()
+/// Pass `voci:` to use an explicit list instead.
+#let totali-risposte(voci: auto) = {
+  let voci = if voci == auto { registro-risposte.final() } else { voci }
   (
     voci: voci,
     totale: voci.fold(0, (acc, voce) => acc + voce.got),
     massimo: voci.fold(0, (acc, voce) => acc + voce.max),
+  )
+}
+
+/// Totals computed from every `quesito` in the document.
+///
+/// Uses `state.final()` so it can be called before the questions are laid out.
+/// Pass `voci:` to use an explicit list instead.
+#let totali-quesiti(voci: auto) = {
+  let voci = if voci == auto { registro-quesiti.final() } else { voci }
+  (
+    voci: voci,
+    totale: voci.fold(0, (acc, voce) => acc + voce.max),
   )
 }
 
@@ -418,8 +433,9 @@
   subtitle: "",
   massimo: auto,
   base: 100,
+  voci: auto,
 ) = context {
-  let dati = totali-risposte()
+  let dati = totali-risposte(voci: voci)
   let tot = if totale == auto { dati.totale } else { totale }
   let max = if massimo == auto { dati.massimo } else { massimo }
   let voto = calc.min(tot, base) / 10
@@ -460,88 +476,116 @@
   ]
 }
 
-/// Automatic summary of a test: one row per item and the sum of the points.
-#let griglia-punteggi() = context {
-  let voci = registro-quesiti.get()
-  let gruppi = raggruppa-per-sezione(voci)
-  let totale = voci.fold(0, (acc, voce) => acc + voce.max)
+/// Unnumbered section title for a score table.
+#let titolo-griglia(titolo) = block(
+  above: 1.4em,
+  below: 1em,
+  width: 100%,
+)[
+  #stack(
+    dir: ttb,
+    spacing: 0.35em,
+    text(size: 17pt, weight: 800, fill: palette.ink)[#titolo],
+    line(length: 100%, stroke: 2.2pt + palette.accent),
+  )
+]
 
-  block(breakable: false, width: 100%)[
-    #table(
-      columns: (auto, 1fr, auto),
-      inset: (x: 9pt, y: 5pt),
-      align: (left, left, right),
-      stroke: 0.5pt + luma(215),
-      table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
-      ..gruppi
-        .map(gruppo => {
-          let titolo = if gruppo.titolo == none { "Quesiti" } else { gruppo.titolo }
-          let header = table.cell(
-            colspan: 3,
-            fill: palette.tint,
-            inset: (x: 9pt, y: 6pt),
-            align: left,
-          )[#text(weight: 800, fill: palette.accent-dark)[#titolo]]
-          let righe = gruppo.voci
-            .map(voce => (
-              [#(voce.category + str(voce.numero))],
-              if voce.title == none { [] } else { voce.title },
-              text(weight: 700)[#fmt-punti(voce.max)],
-            ))
-            .flatten()
-          (header,) + righe
-        })
-        .flatten(),
-      table.cell(colspan: 2, align: right)[*Totale*],
-      text(weight: 800)[#fmt-punti(totale) punti],
-    )
-  ]
-}
-
-/// Automatic summary of a correction: awarded/max per item, total and grade.
-#let griglia-correzione(base: 100) = context {
-  let dati = totali-risposte()
-  let voci = dati.voci
+/// Render a score table from a list of registered items.
+///
+/// With `correzione: false` each row shows the maximum score; with
+/// `correzione: true` it shows awarded/max and adds the grade row.
+/// Pass `titolo:` to add an unnumbered title above the table.
+#let griglia-voci(
+  voci,
+  correzione: false,
+  base: 100,
+  titolo: none,
+) = {
   let gruppi = raggruppa-per-sezione(voci)
-  let totale = dati.totale
-  let massimo = dati.massimo
+  let massimo = voci.fold(0, (acc, voce) => acc + voce.max)
+  let totale = if correzione {
+    voci.fold(0, (acc, voce) => acc + voce.got)
+  } else {
+    massimo
+  }
   let voto = calc.min(totale, base) / 10
   let lode = totale > base
 
-  block(breakable: false, width: 100%)[
-    #table(
-      columns: (auto, 1fr, auto),
-      inset: (x: 9pt, y: 5pt),
-      align: (left, left, right),
-      stroke: 0.5pt + luma(215),
-      table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
-      ..gruppi
-        .map(gruppo => {
-          let titolo = if gruppo.titolo == none { "Quesiti" } else { gruppo.titolo }
-          let header = table.cell(
-            colspan: 3,
-            fill: palette.tint,
-            inset: (x: 9pt, y: 6pt),
-            align: left,
-          )[#text(weight: 800, fill: palette.accent-dark)[#titolo]]
-          let righe = gruppo.voci
-            .map(voce => (
-              [#(voce.category + str(voce.numero))],
-              if voce.title == none { [] } else { voce.title },
-              text(weight: 700)[
-                #fmt-punti(voce.got) / #fmt-punti(voce.max)
-              ],
-            ))
-            .flatten()
-          (header,) + righe
-        })
-        .flatten(),
+  let righe = gruppi
+    .map(gruppo => {
+      let titolo = if gruppo.titolo == none { "Quesiti" } else { gruppo.titolo }
+      let header = table.cell(
+        colspan: 3,
+        fill: palette.tint,
+        inset: (x: 9pt, y: 6pt),
+        align: left,
+      )[#text(weight: 800, fill: palette.accent-dark)[#titolo]]
+      let corpo = gruppo.voci
+        .map(voce => (
+          [#(voce.category + str(voce.numero))],
+          if voce.title == none { [] } else { voce.title },
+          if correzione {
+            text(weight: 700)[#fmt-punti(voce.got) / #fmt-punti(voce.max)]
+          } else {
+            text(weight: 700)[#fmt-punti(voce.max)]
+          },
+        ))
+        .flatten()
+      (header,) + corpo
+    })
+    .flatten()
+
+  let footer = if correzione {
+    (
       table.cell(colspan: 2, align: right)[*Totale*],
       text(weight: 800)[#fmt-punti(totale) / #fmt-punti(massimo)],
       table.cell(colspan: 2, align: right)[*Voto in decimi*],
       text(weight: 800)[#fmt-voto(voto) / 10 #if lode [ e lode]],
     )
+  } else {
+    (
+      table.cell(colspan: 2, align: right)[*Totale*],
+      text(weight: 800)[#fmt-punti(totale) punti],
+    )
+  }
+
+  block(breakable: false, width: 100%)[
+    #if titolo != none {
+      titolo-griglia(titolo)
+    }
+    #table(
+      columns: (auto, 1fr, auto),
+      inset: (x: 9pt, y: 5pt),
+      align: (left, left, right),
+      stroke: 0.5pt + luma(215),
+      table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
+      ..righe,
+      ..footer,
+    )
   ]
+}
+
+/// Automatic summary of a test: one row per item and the sum of the points.
+///
+/// Can be placed before the questions: the registry is read with
+/// `state.final()`. Pass `voci:` to render an explicit list instead and
+/// `titolo:` to add an unnumbered title above the table.
+#let griglia-punteggi(voci: auto, titolo: none) = context {
+  griglia-voci(totali-quesiti(voci: voci).voci, titolo: titolo)
+}
+
+/// Automatic summary of a correction: awarded/max per item, total and grade.
+///
+/// Can be placed before the answers: the registry is read with
+/// `state.final()`. Pass `voci:` to render an explicit list instead and
+/// `titolo:` to add an unnumbered title above the table.
+#let griglia-correzione(voci: auto, base: 100, titolo: none) = context {
+  griglia-voci(
+    totali-risposte(voci: voci).voci,
+    correzione: true,
+    base: base,
+    titolo: titolo,
+  )
 }
 
 // ------------------------------------------------------------

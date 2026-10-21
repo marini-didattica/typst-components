@@ -40,6 +40,9 @@ project/
   descriptors: (("Durata", "80 minuti"),),
 )
 
+// The summary can be placed before the questions: it reads the final state.
+#griglia-punteggi(titolo: "Riepilogo dei punteggi")
+
 = Teoria (20 punti)
 
 #quesito(
@@ -63,16 +66,15 @@ project/
 )[
   #consegna[Conta i numeri pari fra `0` e `n`.]
 ]
-
-= Riepilogo dei punteggi
-
-#griglia-punteggi()
 ```
 
 `quesito` automatically numbers items per `category` (`D1`, `D2`, `E1`, …) and
 registers each item in a document-global state. `griglia-punteggi()` reads that
-state and groups rows by the last level-1 heading, so the section titles and
-totals do not have to be repeated by hand.
+state with `state.final()`, so it can be placed before the questions, after
+them, or anywhere in between. It groups rows by the last level-1 heading, so the
+section titles and totals do not have to be repeated by hand. Pass `titolo:` to
+add an unnumbered title above the table, or `voci:` to render an explicit list
+of items instead of the automatic registry.
 
 ## Corrections
 
@@ -117,13 +119,15 @@ calls with `state.final()`, so the score at the top of the page matches
 the computed values.
 
 `griglia-correzione()` shows awarded/max for every item, the total and the grade
-in tenths. By default the first 100 points map to 10/10 and the remaining 10
-points count as lode; pass `base:` to change the threshold.
+in tenths. Like `griglia-punteggi()`, it reads the final registry, so it can be
+placed before the answers or at the end. Pass `titolo:` for an unnumbered title
+and `voci:` for an explicit list. By default the first 100 points map to 10/10
+and the remaining 10 points count as lode; pass `base:` to change the threshold.
 
 Compile from the project root with `--root .` so the components can import the
 sibling theme package.
 
 ## Development
 
-Check out both repositories side by side. The `misc` and `riservato`
-repositories consume them as git submodules.
+Check out both repositories side by side. The `materiale` repository consumes
+them as git submodules; `misc` and `riservato` are legacy.
