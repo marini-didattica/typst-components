@@ -395,17 +395,35 @@
   ]
 ]
 
+/// Totals computed from every `risposta` in the document.
+///
+/// Uses `state.final()` so it can be called before the answers are laid out.
+#let totali-risposte() = {
+  let voci = registro-risposte.final()
+  (
+    voci: voci,
+    totale: voci.fold(0, (acc, voce) => acc + voce.got),
+    massimo: voci.fold(0, (acc, voce) => acc + voce.max),
+  )
+}
+
 /// Header for a correction sheet.
+///
+/// `totale` and `massimo` default to `auto`: the values are computed from all
+/// `risposta` calls in the document.
 #let intestazione-correzione(
   studente,
-  totale,
+  totale: auto,
   title: "Correzione verifica",
   subtitle: "",
-  massimo: 110,
+  massimo: auto,
   base: 100,
-) = {
-  let voto = calc.min(totale, base) / 10
-  let lode = totale > base
+) = context {
+  let dati = totali-risposte()
+  let tot = if totale == auto { dati.totale } else { totale }
+  let max = if massimo == auto { dati.massimo } else { massimo }
+  let voto = calc.min(tot, base) / 10
+  let lode = tot > base
 
   block(
     width: 100%,
@@ -431,7 +449,7 @@
           spacing: 0.8em,
           etichetta("Punteggio"),
           text(size: 19pt, weight: 800, fill: palette.accent-dark)[
-            #fmt-punti(totale) / #fmt-punti(massimo)
+            #fmt-punti(tot) / #fmt-punti(max)
           ],
           text(size: 10.5pt, weight: 700)[
             Voto #fmt-voto(voto) / 10 #if lode [ e lode]
@@ -482,10 +500,11 @@
 
 /// Automatic summary of a correction: awarded/max per item, total and grade.
 #let griglia-correzione(base: 100) = context {
-  let voci = registro-risposte.get()
+  let dati = totali-risposte()
+  let voci = dati.voci
   let gruppi = raggruppa-per-sezione(voci)
-  let totale = voci.fold(0, (acc, voce) => acc + voce.got)
-  let massimo = voci.fold(0, (acc, voce) => acc + voce.max)
+  let totale = dati.totale
+  let massimo = dati.massimo
   let voto = calc.min(totale, base) / 10
   let lode = totale > base
 

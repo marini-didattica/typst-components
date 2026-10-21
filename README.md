@@ -85,7 +85,6 @@ totals do not have to be repeated by hand.
 
 #intestazione-correzione(
   "Mario Rossi",
-  87,
   title: "Correzione — Simulazione 1",
   subtitle: "Classe 1D",
 )
@@ -111,6 +110,11 @@ totals do not have to be repeated by hand.
 If an answer is missing, pass `none` as the first positional argument (for
 example `#risposta(none, category: "D", ..., points: 7, score: 0)`); the
 component shows a dotted placeholder.
+
+`intestazione-correzione` computes the total and the maximum from all `risposta`
+calls with `state.final()`, so the score at the top of the page matches
+`griglia-correzione()`. Pass `totale:` or `massimo:` explicitly only to override
+the computed values.
 
 `griglia-correzione()` shows awarded/max for every item, the total and the grade
 in tenths. By default the first 100 points map to 10/10 and the remaining 10
