@@ -76,6 +76,15 @@ section titles and totals do not have to be repeated by hand. Pass `titolo:` to
 add an unnumbered title above the table, or `voci:` to render an explicit list
 of items instead of the automatic registry.
 
+## Spacing
+
+The vertical rhythm comes from `spazio` in `typst-theme`. `quesito`,
+`risposta`, `griglia-punteggi()` and `griglia-correzione()` own the spacing
+around and inside their own blocks, so documents should not insert manual
+`#v(...)` between questions, answers or summaries. Use `spazio.*` (flowing
+content) or `spazio.page.*` (fixed page furniture) only for custom layout that
+is not covered by a component.
+
 ## Corrections
 
 `risposta` has the same fields as `quesito`, plus `score` (points awarded):

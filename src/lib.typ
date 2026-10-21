@@ -1,6 +1,6 @@
 // typst-components — reusable blocks built on top of typst-theme.
 
-#import "../../typst-theme/src/lib.typ": etichetta, font-mono, palette, sezione-corrente
+#import "../../typst-theme/src/lib.typ": etichetta, font-mono, palette, sezione-corrente, spazio
 
 // ------------------------------------------------------------
 //  Stars and answer lines
@@ -28,7 +28,7 @@
 
 #let righe-risposta(n) = grid(
   columns: 1,
-  row-gutter: 16pt,
+  row-gutter: spazio.page.lg,
   ..range(n).map(_ => line(
     length: 100%,
     stroke: (paint: luma(195), thickness: 0.6pt, dash: "dotted"),
@@ -41,7 +41,7 @@
 
 #let sezione(titolo, corpo) = stack(
   dir: ttb,
-  spacing: 0.5em,
+  spacing: spazio.sm,
   etichetta(titolo),
   corpo,
 )
@@ -51,7 +51,7 @@
   fill: palette.amber-tint,
   stroke: (left: 2.6pt + palette.amber),
   radius: (top-right: 3pt, bottom-right: 3pt),
-  inset: (x: 10pt, y: 7pt),
+  inset: (x: 10pt, y: spazio.page.sm),
 )[
   #text(fill: palette.amber-dark, weight: 700)[Nota.] #corpo
 ]
@@ -87,7 +87,7 @@
 )[
   #stack(
     dir: ttb,
-    spacing: 0.6em,
+    spacing: spazio.md,
     text(weight: 800, fill: palette.accent-dark, size: 11.5pt)[#titolo],
     corpo,
   )
@@ -103,7 +103,7 @@
 )[
   #stack(
     dir: ttb,
-    spacing: 0.6em,
+    spacing: spazio.md,
     text(weight: 800, fill: palette.accent-dark)[#titolo],
     list(..items),
   )
@@ -196,7 +196,7 @@
     width: 100%,
     fill: palette.tint,
     radius: (top-right: 3pt, bottom-right: 3pt),
-    inset: 8pt,
+    inset: spazio.page.sm,
     stroke: (left: 2.6pt + palette.accent),
   )[
     #grid(
@@ -233,14 +233,19 @@
   context {
     let n = if numero == auto { contatore.get().first() } else { numero }
     let sezione = sezione-corrente.get()
-    registro-quesiti.update(voci => voci + ((
-      category: category,
-      tag: tag,
-      title: title,
-      max: points,
-      numero: n,
-      heading: sezione,
-    ),))
+    registro-quesiti.update(voci => (
+      voci
+        + (
+          (
+            category: category,
+            tag: tag,
+            title: title,
+            max: points,
+            numero: n,
+            heading: sezione,
+          ),
+        )
+    ))
   }
 
   let etichetta-numero = if numero == auto {
@@ -251,18 +256,18 @@
 
   let contenuto = [
     #testata(tag, etichetta-numero, title, diff: diff, massimo: points)
-    #v(0.9em)
+    #v(spazio.sm)
     #corpo
     #if righe != none [
-      #v(0.75cm)
+      #v(spazio.page.xl)
       #righe-risposta(righe)
     ]
   ]
 
   if righe == none {
-    contenuto
+    block(above: spazio.xl, width: 100%)[#contenuto]
   } else {
-    block(breakable: false, width: 100%)[#contenuto]
+    block(above: spazio.xl, breakable: false, width: 100%)[#contenuto]
   }
 }
 
@@ -284,15 +289,20 @@
   context {
     let n = if numero == auto { contatore.get().first() } else { numero }
     let sezione = sezione-corrente.get()
-    registro-risposte.update(voci => voci + ((
-      category: category,
-      tag: tag,
-      title: title,
-      max: points,
-      got: score,
-      numero: n,
-      heading: sezione,
-    ),))
+    registro-risposte.update(voci => (
+      voci
+        + (
+          (
+            category: category,
+            tag: tag,
+            title: title,
+            max: points,
+            got: score,
+            numero: n,
+            heading: sezione,
+          ),
+        )
+    ))
   }
 
   let etichetta-numero = if numero == auto {
@@ -301,7 +311,7 @@
     numero
   }
 
-  block(breakable: false, width: 100%)[
+  block(above: spazio.lg, breakable: false, width: 100%)[
     #testata(
       tag,
       etichetta-numero,
@@ -310,7 +320,7 @@
       massimo: points,
       ottenuto: score,
     )
-    #v(0.55em)
+    #v(spazio.sm)
     #sezione(
       "Risposta",
       if corpo == none { nessuna-risposta } else { corpo },
@@ -389,8 +399,8 @@
   fill: luma(248),
   stroke: (left: 2pt + luma(185)),
   inset: (x: 9pt, y: 6pt),
-  above: 1.1em,
-  below: 1.1em,
+  above: spazio.sm,
+  below: spazio.md,
 )[
   #text(fill: luma(85))[
     #text(weight: 700)[Commento.] #corpo
@@ -447,6 +457,7 @@
     stroke: (left: 2.6pt + palette.accent),
     radius: (top-right: 3pt, bottom-right: 3pt),
     inset: (x: 12pt, y: 10pt),
+    below: spazio.lg,
   )[
     #grid(
       columns: (1fr, auto),
@@ -454,7 +465,7 @@
       align: horizon,
       stack(
         dir: ttb,
-        spacing: 0.8em,
+        spacing: spazio.lg,
         etichetta(title),
         text(size: 18pt, weight: 800, fill: palette.ink)[#studente],
         text(size: 9.5pt, fill: luma(110))[#subtitle],
@@ -462,7 +473,7 @@
       align(right)[
         #stack(
           dir: ttb,
-          spacing: 0.8em,
+          spacing: spazio.lg,
           etichetta("Punteggio"),
           text(size: 19pt, weight: 800, fill: palette.accent-dark)[
             #fmt-punti(tot) / #fmt-punti(max)
@@ -478,13 +489,12 @@
 
 /// Unnumbered section title for a score table.
 #let titolo-griglia(titolo) = block(
-  above: 1.4em,
-  below: 1em,
+  below: spazio.md,
   width: 100%,
 )[
   #stack(
     dir: ttb,
-    spacing: 0.35em,
+    spacing: spazio.page.md,
     text(size: 17pt, weight: 800, fill: palette.ink)[#titolo],
     line(length: 100%, stroke: 2.2pt + palette.accent),
   )
@@ -520,7 +530,8 @@
         inset: (x: 9pt, y: 6pt),
         align: left,
       )[#text(weight: 800, fill: palette.accent-dark)[#titolo]]
-      let corpo = gruppo.voci
+      let corpo = gruppo
+        .voci
         .map(voce => (
           [#(voce.category + str(voce.numero))],
           if voce.title == none { [] } else { voce.title },
@@ -549,7 +560,7 @@
     )
   }
 
-  block(breakable: false, width: 100%)[
+  block(above: spazio.xl, below: spazio.lg, breakable: false, width: 100%)[
     #if titolo != none {
       titolo-griglia(titolo)
     }
@@ -612,14 +623,14 @@
 ) = {
   let campo(nome) = stack(
     dir: ttb,
-    spacing: 0.4em,
+    spacing: spazio.sm,
     etichetta(nome),
     line(length: 100%, stroke: 0.6pt + luma(170)),
   )
 
   let dato(titolo, valore) = stack(
     dir: ttb,
-    spacing: 0.6em,
+    spacing: spazio.md,
     etichetta(titolo),
     text(weight: 800, fill: palette.accent)[#valore],
   )
@@ -663,7 +674,7 @@
 
   page(footer: none)[
     #align(center)[
-      #v(0.7cm)
+      #v(spazio.page.xl)
       #if top != none [
         #text(
           size: 9pt,
@@ -672,19 +683,19 @@
           fill: palette.accent,
         )[#top]
       ]
-      #v(11pt)
+      #v(spazio.page.md)
       #if title != none [
         #text(size: 28pt, weight: 800, fill: palette.ink)[#title]
       ]
-      #v(2pt)
+      #v(spazio.page.xs)
       #if subtitle != none [
         #text(size: 14pt, fill: luma(110))[#subtitle]
       ]
-      #v(0.55cm)
+      #v(spazio.page.lg)
       #if decoration-content != none [
         #decoration-content
       ]
-      #v(0.6cm)
+      #v(spazio.page.lg)
     ]
 
     #if descriptors.len() > 0 [
@@ -702,14 +713,14 @@
           ..descriptors.map(pair => dato(pair.at(0), pair.at(1))),
         )
       ]
-      #v(0.75cm)
+      #v(spazio.page.xl)
     ]
 
     #if fields.len() > 0 [
       #grid(
         columns: (1fr, 1fr),
         column-gutter: 18pt,
-        row-gutter: 28pt,
+        row-gutter: spazio.page.xxl,
         ..fields.map(field => campo(
           student-labels.at(field, default: upper(field)),
         )),
@@ -717,7 +728,7 @@
     ]
 
     #if body != none [
-      #v(0.7cm)
+      #v(spazio.page.xl)
       #body
     ]
   ]
