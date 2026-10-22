@@ -119,6 +119,25 @@
 /// Format a grade in tenths with one decimal digit.
 #let fmt-voto(x) = fmt-punti(calc.round(x, digits: 1))
 
+/// Map a raw score onto the grade range.
+///
+/// The interval `0..base` is linearly mapped onto `voto-min..voto-max`.
+/// Scores above `base` are capped at `voto-max` (the extra points only
+/// determine whether the grade deserves honours).
+#let calcola-voto(
+  totale,
+  base: 100,
+  voto-min: 3,
+  voto-max: 10,
+) = {
+  let normalizzato = if base <= 0 {
+    0
+  } else {
+    calc.min(calc.max(totale, 0), base) / base
+  }
+  voto-min + normalizzato * (voto-max - voto-min)
+}
+
 /// Placeholder shown when a student did not submit an answer.
 #let nessuna-risposta = block(
   width: 100%,
@@ -194,6 +213,8 @@
 
   block(
     width: 100%,
+    above: 0pt,
+    below: 0pt,
     fill: palette.tint,
     radius: (top-right: 3pt, bottom-right: 3pt),
     inset: spazio.page.sm,
@@ -256,7 +277,6 @@
 
   let contenuto = [
     #testata(tag, etichetta-numero, title, diff: diff, massimo: points)
-    #v(spazio.sm)
     #corpo
     #if righe != none [
       #v(spazio.page.xl)
@@ -399,7 +419,7 @@
   fill: luma(248),
   stroke: (left: 2pt + luma(185)),
   inset: (x: 9pt, y: 6pt),
-  above: spazio.sm,
+  above: spazio.md,
   below: spazio.md,
 )[
   #text(fill: luma(85))[
@@ -443,12 +463,14 @@
   subtitle: "",
   massimo: auto,
   base: 100,
+  voto-min: 3,
+  voto-max: 10,
   voci: auto,
 ) = context {
   let dati = totali-risposte(voci: voci)
   let tot = if totale == auto { dati.totale } else { totale }
   let max = if massimo == auto { dati.massimo } else { massimo }
-  let voto = calc.min(tot, base) / 10
+  let voto = calcola-voto(tot, base: base, voto-min: voto-min, voto-max: voto-max)
   let lode = tot > base
 
   block(
@@ -509,6 +531,8 @@
   voci,
   correzione: false,
   base: 100,
+  voto-min: 3,
+  voto-max: 10,
   titolo: none,
 ) = {
   let gruppi = raggruppa-per-sezione(voci)
@@ -518,7 +542,7 @@
   } else {
     massimo
   }
-  let voto = calc.min(totale, base) / 10
+  let voto = calcola-voto(totale, base: base, voto-min: voto-min, voto-max: voto-max)
   let lode = totale > base
 
   let righe = gruppi
@@ -590,11 +614,19 @@
 /// Can be placed before the answers: the registry is read with
 /// `state.final()`. Pass `voci:` to render an explicit list instead and
 /// `titolo:` to add an unnumbered title above the table.
-#let griglia-correzione(voci: auto, base: 100, titolo: none) = context {
+#let griglia-correzione(
+  voci: auto,
+  base: 100,
+  voto-min: 3,
+  voto-max: 10,
+  titolo: none,
+) = context {
   griglia-voci(
     totali-risposte(voci: voci).voci,
     correzione: true,
     base: base,
+    voto-min: voto-min,
+    voto-max: voto-max,
     titolo: titolo,
   )
 }
