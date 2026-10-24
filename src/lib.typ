@@ -26,13 +26,18 @@
   }
 ]
 
-#let righe-risposta(n) = grid(
-  columns: 1,
-  row-gutter: spazio.page.lg,
-  ..range(n).map(_ => line(
-    length: 100%,
-    stroke: (paint: luma(195), thickness: 0.6pt, dash: "dotted"),
-  )),
+#let righe-risposta(n) = rect(
+  stroke: 0.5pt + luma(195),
+  radius: 3pt,
+  inset: spazio.page.lg,
+  grid(
+    columns: 1,
+    row-gutter: spazio.page.lg,
+    ..range(n).map(_ => line(
+      length: 100%,
+      stroke: (paint: luma(195), thickness: 0.6pt, dash: "dotted"),
+    )),
+  ),
 )
 
 // ------------------------------------------------------------
@@ -41,7 +46,7 @@
 
 #let sezione(titolo, corpo) = stack(
   dir: ttb,
-  spacing: spazio.sm,
+  spacing: spazio.md,
   etichetta(titolo),
   corpo,
 )
@@ -67,14 +72,19 @@
 #let esempi(righe) = block(breakable: false)[
   #sezione(
     "Esempi di input e output",
-    table(
-      columns: (auto, auto, 1fr),
-      inset: (x: 8pt, y: 5pt),
-      align: (left, left, left),
-      stroke: 0.5pt + luma(215),
-      table.header([*Input*], [*Output*], [*Spiegazione*]),
-      ..righe.flatten(),
-    ),
+    block(
+      radius: 3pt,
+      clip: true,
+      stroke: 0.5pt + luma(195),
+    )[
+      #table(
+        columns: (auto, auto, 1fr),
+        inset: (x: 8pt, y: 5pt),
+        align: (left, left, left),
+        stroke: 0.5pt + luma(215),
+        table.header([*Input*], [*Output*], [*Spiegazione*]),
+        ..righe.flatten(),
+      )],
   )
 ]
 
@@ -218,6 +228,7 @@
     fill: palette.tint,
     radius: (top-right: 3pt, bottom-right: 3pt),
     inset: spazio.page.sm,
+    outset: (left: -1.3pt),
     stroke: (left: 2.6pt + palette.accent),
   )[
     #grid(
@@ -277,9 +288,9 @@
 
   let contenuto = [
     #testata(tag, etichetta-numero, title, diff: diff, massimo: points)
+    #v(spazio.page.md)
     #corpo
     #if righe != none [
-      #v(spazio.page.xl)
       #righe-risposta(righe)
     ]
   ]
@@ -588,15 +599,21 @@
     #if titolo != none {
       titolo-griglia(titolo)
     }
-    #table(
-      columns: (auto, 1fr, auto),
-      inset: (x: 9pt, y: 5pt),
-      align: (left, left, right),
-      stroke: 0.5pt + luma(215),
-      table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
-      ..righe,
-      ..footer,
-    )
+    #block(
+      radius: 3pt,
+      clip: true,
+      stroke: 0.5pt + luma(195),
+    )[
+      #table(
+        columns: (auto, 1fr, auto),
+        inset: (x: 9pt, y: 5pt),
+        align: (left, left, right),
+        stroke: 0.5pt + luma(215),
+        table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
+        ..righe,
+        ..footer,
+      )
+    ]
   ]
 }
 
@@ -714,20 +731,20 @@
           tracking: 0.18em,
           fill: palette.accent,
         )[#top]
+        #v(spazio.page.md)
       ]
-      #v(spazio.page.md)
       #if title != none [
         #text(size: 28pt, weight: 800, fill: palette.ink)[#title]
+        #v(spazio.page.xs)
       ]
-      #v(spazio.page.xs)
       #if subtitle != none [
         #text(size: 14pt, fill: luma(110))[#subtitle]
+        #v(spazio.page.lg)
       ]
-      #v(spazio.page.lg)
       #if decoration-content != none [
         #decoration-content
+        #v(spazio.page.lg)
       ]
-      #v(spazio.page.lg)
     ]
 
     #if descriptors.len() > 0 [
@@ -745,7 +762,7 @@
           ..descriptors.map(pair => dato(pair.at(0), pair.at(1))),
         )
       ]
-      #v(spazio.page.xl)
+      #v(spazio.page.lg)
     ]
 
     #if fields.len() > 0 [
@@ -760,7 +777,6 @@
     ]
 
     #if body != none [
-      #v(spazio.page.xl)
       #body
     ]
   ]
