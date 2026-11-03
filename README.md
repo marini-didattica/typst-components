@@ -8,6 +8,7 @@ Main exports:
 - `quesito` — one component for theory questions, exercises and snippets
 - `quesito2` — data-driven question block for JSON exam descriptors
 - `render-exam` — load and render one set from a JSON exam descriptor
+- `istruzioni-consegna` — standard delivery instructions block
 - `risposta` — the corresponding correction block
 - `griglia-punteggi` — automatic test summary
 - `griglia-punteggi2` — summary built directly from resolved exam data

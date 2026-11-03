@@ -103,6 +103,16 @@
   )
 ]
 
+/// Standard delivery instructions for generated exams.
+#let istruzioni-consegna(titolo: "Istruzioni per la consegna") = callout(titolo)[
+  - Crea una cartella `cognome-nome`, tutto minuscolo. Se hai più nomi o più cognomi,
+    mettili tutti, concatenati dal carattere `-`.
+  - Crea un file per ciascun esercizio. Il nome è quello indicato nell'intestazione,
+    tutto minuscolo e senza spazi: estensione `.py` per gli esercizi di programmazione,
+    `.txt` per le risposte alle domande e agli snippet.
+  - Non modificare i file di partenza e non consegnare cartelle compresse.
+]
+
 #let checklist(titolo, items) = block(
   breakable: false,
   width: 100%,

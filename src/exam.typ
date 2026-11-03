@@ -1,4 +1,5 @@
-#import "lib.typ": griglia-voti2, quesito2
+#import "lib.typ": cover, griglia-voti2, istruzioni-consegna, quesito2
+#import "/typst-theme/src/lib.typ": theme
 
 /// Return the directory portion of a POSIX path.
 #let parent-path(value) = {
@@ -440,7 +441,43 @@
   }
 
   let exam = resolve-exam(set-name)
+  let meta = exam.metadata
 
+  set document(title: meta.title, author: meta.author)
+  show: doc => theme(doc, footer-text: meta.title)
+
+  let top = if meta.top == none {
+    "LICEO RUSSELL · INFORMATICA · CLASSE " + meta.class
+  } else {
+    meta.top
+  }
+
+  let descriptors = (
+    ("Durata", str(meta.duration) + " minuti"),
+    ("Punteggio", str(exam.total) + " punti"),
+  )
+  for category in exam.categories {
+    descriptors = descriptors + ((category.tag, str(category.points) + " punti"),)
+  }
+
+  cover(
+    top: top,
+    title: meta.title,
+    subtitle: meta.subtitle,
+    decoration: auto,
+    descriptors: descriptors,
+    student-data: none,
+  )
+  pagebreak()
+
+  let preamble-path = if has-key(descriptor, "preamble-file") {
+    resolve-path(base-dir, required-string(descriptor, "preamble-file", "preamble-file"))
+  } else {
+    "/typst-theme/src/preamble.typ"
+  }
+  include preamble-path
+
+  istruzioni-consegna()
   griglia-voti2(exam.categories, titolo: "Riepilogo dei punteggi")
   pagebreak()
 
