@@ -1,4 +1,4 @@
-#import "lib.typ": quesito2
+#import "lib.typ": griglia-voti2, quesito2
 
 /// Return the directory portion of a POSIX path.
 #let parent-path(value) = {
@@ -440,6 +440,9 @@
   }
 
   let exam = resolve-exam(set-name)
+
+  griglia-voti2(exam.categories, titolo: "Riepilogo dei punteggi")
+  pagebreak()
 
   for pair in exam.categories.enumerate() {
     let index = pair.at(0)

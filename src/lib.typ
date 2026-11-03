@@ -654,22 +654,61 @@
 ///
 /// `categories` is an array of dictionaries with `id`, `title`, and
 /// `exercises`. Each exercise must contain `numero`, `title`, and `points`.
-/// Unlike `griglia-punteggi`, this does not read the document registry.
-#let griglia-punteggi2(categories, titolo: none) = {
-  let voci = ()
+/// Section rows use `category.title` from the descriptor; nothing is derived
+/// from the document's heading state.
+#let griglia-voti2(categories, titolo: none) = {
+  let righe = ()
+  let totale = 0
+
   for category in categories {
+    let category-points = category.exercises.fold(0, (acc, exercise) => acc + exercise.points)
+    totale = totale + category-points
+
+    righe = righe + (table.cell(
+      colspan: 3,
+      fill: palette.tint,
+      inset: (x: 9pt, y: 6pt),
+      align: left,
+    )[#text(weight: 800, fill: palette.accent-dark)[#category.title]],)
+
     for exercise in category.exercises {
-      voci = voci + ((
-        category: category.id,
-        numero: exercise.numero,
-        title: exercise.title,
-        max: exercise.points,
-        heading: category.title,
-      ),)
+      righe = righe + (
+        [#(category.id + str(exercise.numero))],
+        exercise.title,
+        text(weight: 700)[#fmt-punti(exercise.points)],
+      )
     }
   }
-  griglia-voci(voci, titolo: titolo)
+
+  let footer = (
+    table.cell(colspan: 2, align: right)[*Totale*],
+    text(weight: 800)[#fmt-punti(totale) punti],
+  )
+
+  block(above: spazio.xl, below: spazio.lg, breakable: false, width: 100%)[
+    #if titolo != none {
+      titolo-griglia(titolo)
+    }
+    #block(
+      radius: 3pt,
+      clip: true,
+      stroke: 0.5pt + luma(195),
+    )[
+      #table(
+        columns: (auto, 1fr, auto),
+        inset: (x: 9pt, y: 5pt),
+        align: (left, left, right),
+        stroke: 0.5pt + luma(215),
+        table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
+        ..righe,
+        ..footer,
+      )
+    ]
+  ]
 }
+
+/// Backwards-compatible alias for `griglia-voti2`.
+#let griglia-punteggi2(categories, titolo: none) = griglia-voti2(categories, titolo: titolo)
 
 /// Automatic summary of a correction: awarded/max per item, total and grade.
 ///
