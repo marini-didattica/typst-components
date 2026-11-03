@@ -302,6 +302,30 @@
   }
 }
 
+/// Data-driven question block.
+///
+/// `item` is a dictionary produced by an exam parser. Expected keys:
+/// - `numero`: displayed number within the category
+/// - `tag`: badge label
+/// - `title`: item title
+/// - `points`: maximum score
+/// - `difficulty`: number of difficulty stars, or `none`
+///
+/// The problem body is passed separately, usually as `[#include item.file]`.
+#let quesito2(item, body) = {
+  let numero = item.at("numero")
+  let tag = item.at("tag")
+  let title = item.at("title", default: none)
+  let points = item.at("points", default: 0)
+  let difficulty = item.at("difficulty", default: none)
+
+  block(above: spazio.xl, width: 100%)[
+    #testata(tag, numero, title, diff: difficulty, massimo: points)
+    #v(spazio.page.md)
+    #body
+  ]
+}
+
 /// Answer component used in corrections. Same fields as `quesito`, plus
 /// `score` (points awarded).
 #let risposta(
@@ -624,6 +648,27 @@
 /// `titolo:` to add an unnumbered title above the table.
 #let griglia-punteggi(voci: auto, titolo: none) = context {
   griglia-voci(totali-quesiti(voci: voci).voci, titolo: titolo)
+}
+
+/// Summary table built directly from resolved exam data.
+///
+/// `categories` is an array of dictionaries with `id`, `title`, and
+/// `exercises`. Each exercise must contain `numero`, `title`, and `points`.
+/// Unlike `griglia-punteggi`, this does not read the document registry.
+#let griglia-punteggi2(categories, titolo: none) = {
+  let voci = ()
+  for category in categories {
+    for exercise in category.exercises {
+      voci = voci + ((
+        category: category.id,
+        numero: exercise.numero,
+        title: exercise.title,
+        max: exercise.points,
+        heading: category.title,
+      ),)
+    }
+  }
+  griglia-voci(voci, titolo: titolo)
 }
 
 /// Automatic summary of a correction: awarded/max per item, total and grade.

@@ -6,8 +6,10 @@ Reusable blocks for the Liceo Russell Typst materials, built on top of
 Main exports:
 
 - `quesito` — one component for theory questions, exercises and snippets
+- `quesito2` — data-driven question block for JSON exam descriptors
 - `risposta` — the corresponding correction block
 - `griglia-punteggi` — automatic test summary
+- `griglia-punteggi2` — summary built directly from resolved exam data
 - `griglia-correzione` — automatic correction summary
 - `cover`
 - `nota`, `template`, `esempi`
