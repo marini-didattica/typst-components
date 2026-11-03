@@ -1,41 +1,99 @@
 # typst-components
 
-Reusable blocks for the Liceo Russell Typst materials, built on top of
-[`typst-theme`](https://github.com/marini-didattica/typst-theme).
+Shared visual identity, reusable blocks and document templates for the Liceo
+Russell Typst materials.
 
-Main exports:
+This package merges the former `typst-theme` and `typst-components`
+repositories. The theme is no longer a separate dependency: colours, spacing,
+labels, page setup and document templates all live here.
 
-- `quesito` — one component for theory questions, exercises and snippets
-- `quesito2` — data-driven question block for JSON exam descriptors
+## What is exported
+
+**Theme**
+
+- `palette`, `palette-didattica` — exam and programme colour presets
+- `font-mono`, `font-sans`
+- `spazio`, `spazio-didattica` — vertical rhythm tokens
+- `etichetta` — configurable uppercase/small-caps label
+- `sezione-corrente` — running level-1 heading state
+- `theme` — exam page/typography/heading show rule
+- `tema-didattica` — programme page/typography show rule
+
+**Exam components**
+
+- `quesito`, `quesito2` — theory questions, exercises and snippets
 - `render-exam` — load and render one set from a JSON exam descriptor
-- `istruzioni-consegna` — standard delivery instructions block
-- `risposta` — the corresponding correction block
-- `griglia-punteggi` — automatic test summary
-- `griglia-punteggi2` — summary built directly from resolved exam data
-- `griglia-correzione` — automatic correction summary
-- `cover`
-- `nota`, `template`, `esempi`
+- `istruzioni-consegna`, `risposta`, `commento`, `nessuna-risposta`
+- `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`
+- `cover`, `nota`, `template`, `esempi`
 - `callout`, `checklist`, `consegna`
-- `stelle`, `righe-risposta`
-- `nessuna-risposta`, `commento`, `intestazione-correzione`
+- `stelle`, `righe-risposta`, `intestazione-correzione`
+
+**Programme components**
+
+- `programma-didattica` — full document template
+- `copertina-programma` — cover page
+- `quadro`, `sezione` — first-page framework table
+- `modulo`, `sottosezione` — teaching modules
 
 The old `domanda`, `esercizio`, `lettura`, `risposta-domanda`,
 `risposta-esercizio` and `risposta-snippet` names remain as compatibility
 wrappers.
 
-## Usage
+## Layout
 
-The theme must be available as a sibling directory (or git submodule):
+```text
+typst-components/
+├── examples/
+│   └── programma.typ
+├── src/
+│   ├── lib.typ                 # umbrella entry point
+│   ├── theme/
+│   │   ├── palette.typ
+│   │   ├── spacing.typ
+│   │   ├── labels.typ
+│   │   ├── esame.typ
+│   │   ├── didattica.typ
+│   │   └── lib.typ
+│   ├── components/
+│   │   ├── stelle.typ
+│   │   ├── righe-risposta.typ
+│   │   ├── punteggi.typ
+│   │   ├── blocchi.typ
+│   │   ├── testata.typ
+│   │   ├── quesito.typ
+│   │   ├── risposta.typ
+│   │   ├── riepilogo.typ
+│   │   ├── compatibilita.typ
+│   │   ├── copertina.typ
+│   │   └── programma/
+│   │       ├── copertina.typ
+│   │       ├── quadro.typ
+│   │       ├── modulo.typ
+│   │       └── lib.typ
+│   ├── documents/
+│   │   ├── exam.typ
+│   │   └── programma.typ
+│   ├── assets/
+│   │   └── preamble.typ
+│   └── exam.typ                # compatibility wrapper
+└── typst.toml
+```
+
+## Usage: exam
+
+The package must be available from the Typst root (as a sibling directory or a
+git submodule):
 
 ```text
 project/
-├── typst-theme/
 └── typst-components/
 ```
 
 ```typ
-#import "../typst-theme/src/lib.typ": theme
-#import "../typst-components/src/lib.typ": cover, quesito, griglia-punteggi
+#import "/typst-components/src/lib.typ": (
+  theme, cover, quesito, griglia-punteggi,
+)
 
 #show: doc => theme(doc, footer-text: "Verifica di informatica")
 
@@ -58,44 +116,75 @@ project/
 )[
   Descrivi le principali componenti di un personal computer.
 ]
-
-= Scrittura del codice (60 punti)
-
-#quesito(
-  category: "E",
-  tag: "Esercizio",
-  title: [Conta i numeri pari],
-  points: 10,
-  diff: 1,
-)[
-  #consegna[Conta i numeri pari fra `0` e `n`.]
-]
 ```
 
 `quesito` automatically numbers items per `category` (`D1`, `D2`, `E1`, …) and
 registers each item in a document-global state. `griglia-punteggi()` reads that
 state with `state.final()`, so it can be placed before the questions, after
-them, or anywhere in between. It groups rows by the last level-1 heading, so the
-section titles and totals do not have to be repeated by hand. Pass `titolo:` to
-add an unnumbered title above the table, or `voci:` to render an explicit list
-of items instead of the automatic registry.
+them, or anywhere in between. It groups rows by the last level-1 heading.
+
+## Usage: programme
+
+```typ
+#import "/typst-components/src/lib.typ": (
+  programma-didattica, modulo, quadro, sezione, sottosezione,
+)
+
+#show: programma-didattica.with(
+  classe: "1D",
+  docente: "Prof. Mattia Marini",
+  anno-scolastico: "2026/27",
+  ore-annue: 66,
+)
+
+#quadro[
+  #sezione("COMPETENZE DA RAGGIUNGERE AL TERMINE DELL’ANNO SCOLASTICO")[
+    - Saper analizzare un problema e formulare una soluzione algoritmica.
+  ]
+  #sezione("METODOLOGIE DIDATTICHE")[
+    - Lezione frontale e dialogata.
+  ]
+]
+
+#modulo("Modulo 1 – Introduzione all’informatica", ore: 5)[
+  #sezione("CONOSCENZE E/O CONTENUTI")[
+    - Concetto di algoritmo.
+  ]
+  #sezione("ABILITÀ E COMPETENZE")[
+    - Riconoscere i principali componenti hardware.
+  ]
+]
+```
+
+`classe`, `docente`, `anno-scolastico` and `ore-annue` are required. The school
+name, address and programme type have defaults; pass `istituto:`, `sede:` and
+`indirizzo:` to override them.
+
+`#sezione(...)` registers a row; `#quadro` and `#modulo` consume and clear the
+registry after laying out their body. This keeps the source readable while
+still producing a real table.
+
+Compile from the project root with `--root .`:
+
+```sh
+typst compile --root . content/raw/public/prime/1d/programma.typ
+```
 
 ## Spacing
 
-The vertical rhythm comes from `spazio` in `typst-theme`. `quesito`,
-`risposta`, `griglia-punteggi()` and `griglia-correzione()` own the spacing
-around and inside their own blocks, so documents should not insert manual
-`#v(...)` between questions, answers or summaries. Use `spazio.*` (flowing
-content) or `spazio.page.*` (fixed page furniture) only for custom layout that
-is not covered by a component.
+The exam rhythm comes from `spazio`; the programme rhythm from
+`spazio-didattica`. `quesito`, `risposta`, `griglia-punteggi()` and
+`griglia-correzione()` own the spacing around and inside their own blocks, so
+documents should not insert manual `#v(...)` between questions, answers or
+summaries.
 
 ## Corrections
 
 `risposta` has the same fields as `quesito`, plus `score` (points awarded):
 
 ```typ
-#import "../typst-components/src/lib.typ": (
-  intestazione-correzione, risposta, commento, griglia-correzione,
+#import "/typst-components/src/lib.typ": (
+  theme, intestazione-correzione, risposta, commento, griglia-correzione,
 )
 
 #intestazione-correzione(
@@ -133,14 +222,34 @@ the computed values.
 
 `griglia-correzione()` shows awarded/max for every item, the total and the grade
 in tenths. Like `griglia-punteggi()`, it reads the final registry, so it can be
-placed before the answers or at the end. Pass `titolo:` for an unnumbered title
-and `voci:` for an explicit list. By default the first 100 points map to 10/10
-and the remaining 10 points count as lode; pass `base:` to change the threshold.
+placed before the answers or at the end. By default the first 100 points map to
+10/10 and the remaining 10 points count as lode; pass `base:` to change the
+threshold.
 
-Compile from the project root with `--root .` so the components can import the
-sibling theme package.
+## Migration from typst-theme
+
+Documents that used to import two packages now import one:
+
+```typ
+// before
+#import "/typst-theme/src/lib.typ": theme
+#import "/typst-components/src/lib.typ": cover, quesito
+
+// after
+#import "/typst-components/src/lib.typ": theme, cover, quesito
+```
+
+The former `/typst-theme/src/preamble.typ` path is now
+`/typst-components/src/assets/preamble.typ`. The JSON exam renderer uses this
+path as its default preamble.
 
 ## Development
 
-Check out both repositories side by side. The `materiale` repository consumes
-them as git submodules; `misc` and `riservato` are legacy.
+Compile the runnable programme example from the package root:
+
+```sh
+typst compile --root . examples/programma.typ /tmp/programma.pdf
+```
+
+The `materiale` repository consumes this package as a git submodule; `misc` is
+legacy.
