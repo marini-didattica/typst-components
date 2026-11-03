@@ -13,6 +13,10 @@ should use these tokens instead of ad-hoc vertical spacing. Links are rendered
 as inline monospace “verb” chips: code background, thin border, and
 accent-coloured text, while remaining clickable.
 
+`src/preamble.typ` contains the shared general instructions included by the
+JSON exam renderer after the generated cover. Documents can override it with
+the `preamble-file` key in their descriptor.
+
 ## Usage
 
 Keep the theme next to the document that imports it (as a sibling directory or
