@@ -126,6 +126,20 @@ registers each item in a document-global state. `griglia-punteggi()` reads that
 state with `state.final()`, so it can be placed before the questions, after
 them, or anywhere in between. It groups rows by the last level-1 heading.
 
+### JSON descriptors
+
+Use Typst's `path` constructor to resolve the descriptor relative to the
+document that imports it:
+
+```typ
+#import "/typst-components/src/exam.typ": render-exam
+
+#render-exam(path("prova-1.json"), "b")
+```
+
+Root-relative strings (starting with `/`) remain supported. Relative paths
+inside the descriptor are resolved against the descriptor's directory.
+
 ## Answer files
 
 Each exercise can declare the name of the file where the answer must be

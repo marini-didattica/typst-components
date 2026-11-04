@@ -8,6 +8,28 @@
   if parts.len() <= 1 { "" } else { parts.slice(0, -1).join("/") }
 }
 
+/// Return the string form of a path accepted by `render-exam`.
+///
+/// Typst's `path` type has no accessors yet, so its representation is the only
+/// way to recover the resolved virtual path.
+#let path-string(value) = {
+  let kind = type(value)
+  if kind == str {
+    value
+  } else if kind == path {
+    let raw = repr(value)
+    if not raw.starts-with("path(\"") or not raw.ends-with("\")") {
+      panic("exam: percorso non supportato: " + raw)
+    }
+    raw.slice(6, -2)
+  } else {
+    panic(
+      "exam: il percorso del descrittore deve essere una stringa o un `path`: "
+        + repr(value),
+    )
+  }
+}
+
 /// Resolve a descriptor-relative path against the descriptor directory.
 #let resolve-path(base-dir, value) = {
   if value.starts-with("/") {
@@ -21,16 +43,17 @@
 
 /// Render one exam variant from a JSON descriptor.
 ///
-/// `json-path` must be root-relative (it must start with `/`) so paths inside
-/// the descriptor can be resolved against the descriptor's directory.
-#let render-exam(json-path, set-name) = {
-  if not json-path.starts-with("/") {
-    panic("exam: json-path must start with '/': " + json-path)
+/// Pass a Typst `path` to resolve it relative to the document, or a
+/// root-relative string (it must start with `/`). Paths inside the descriptor
+/// are resolved against the descriptor's directory.
+#let render-exam(exam-path, set-name) = {
+  if type(exam-path) == str and not exam-path.starts-with("/") {
+    panic("exam: json-path must start with '/': " + exam-path)
   }
 
-  let descriptor = json(json-path)
+  let descriptor = json(exam-path)
   let all-sets = descriptor.at("sets")
-  let base-dir = parent-path(json-path)
+  let base-dir = parent-path(path-string(exam-path))
 
   let fail(message) = panic("exam: " + message)
 
