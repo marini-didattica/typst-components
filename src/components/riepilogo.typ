@@ -3,6 +3,7 @@
 #import "../theme/palette.typ": palette
 #import "../theme/spacing.typ": spazio
 #import "../theme/labels.typ": etichetta
+#import "nomi-file.typ": nome-risposta
 #import "punteggi.typ": fmt-punti, fmt-voto, calcola-voto
 
 /// Items registered by `quesito`, grouped automatically by section.
@@ -223,8 +224,9 @@
 ///
 /// `categories` is an array of dictionaries with `id`, `title`, and
 /// `exercises`. Each exercise must contain `numero`, `title`, and `points`.
-/// Section rows use `category.title` from the descriptor; nothing is derived
-/// from the document's heading state.
+/// The answer file is taken from `answer-file` when present, otherwise it is
+/// derived from the badge tag and number. Section rows use `category.title`
+/// from the descriptor; nothing is derived from the document's heading state.
 #let griglia-voti2(categories, titolo: none) = {
   let righe = ()
   let totale = 0
@@ -234,7 +236,7 @@
     totale = totale + category-points
 
     righe = righe + (table.cell(
-      colspan: 3,
+      colspan: 4,
       fill: palette.tint,
       inset: (x: 9pt, y: 6pt),
       align: left,
@@ -244,13 +246,14 @@
       righe = righe + (
         [#(category.id + str(exercise.numero))],
         exercise.title,
+        raw(nome-risposta(exercise, padding: 2)),
         text(weight: 700)[#fmt-punti(exercise.points)],
       )
     }
   }
 
   let footer = (
-    table.cell(colspan: 2, align: right)[*Totale*],
+    table.cell(colspan: 3, align: right)[*Totale*],
     text(weight: 800)[#fmt-punti(totale) punti],
   )
 
@@ -264,11 +267,11 @@
       stroke: 0.5pt + luma(195),
     )[
       #table(
-        columns: (auto, 1fr, auto),
+        columns: (auto, 1fr, auto, auto),
         inset: (x: 9pt, y: 5pt),
-        align: (left, left, right),
+        align: (left, left, left, right),
         stroke: 0.5pt + luma(215),
-        table.header([*Voce*], [*Dettaglio*], [*Punteggio*]),
+        table.header([*Voce*], [*Dettaglio*], [*File risposta*], [*Punteggio*]),
         ..righe,
         ..footer,
       )

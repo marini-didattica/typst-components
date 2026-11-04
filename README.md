@@ -153,7 +153,8 @@ written:
 
 `{ordinal}` depends on the set: an exercise excluded from a set does not consume
 a number. If `answer-file` is omitted, the renderer falls back to the
-conventional name derived from the badge tag and number.
+conventional name derived from the badge tag and number. The answer file is
+shown below the question header and in the `griglia-voti2` summary table.
 
 ## Usage: programme
 
