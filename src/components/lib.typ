@@ -15,7 +15,7 @@
 )
 #import "testata.typ": badge, testata
 #import "quesito.typ": quesito, quesito2
-#import "risposta.typ": nessuna-risposta, risposta, commento
+#import "risposta.typ": nessuna-risposta, risposta-nel-file, risposta, commento
 #import "riepilogo.typ": (
   registro-quesiti,
   registro-risposte,
@@ -29,6 +29,7 @@
   griglia-voti2,
   griglia-punteggi2,
   griglia-correzione,
+  griglia-correzioni2,
 )
 #import "compatibilita.typ": (
   domanda,

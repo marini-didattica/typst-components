@@ -8,5 +8,12 @@
 #import "components/lib.typ": *
 
 // Document-level renderers.
-#import "documents/exam.typ": parent-path, resolve-path, render-exam
+#import "documents/exam.typ": (
+  parent-path,
+  path-string,
+  resolve-path,
+  load-exam,
+  render-exam,
+)
+#import "documents/correction.typ": load-correction, render-correction
 #import "documents/programma.typ": programma-didattica

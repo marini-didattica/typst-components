@@ -70,13 +70,14 @@
   base: 100,
   voto-min: 3,
   voto-max: 10,
+  lode-soglia: auto,
   voci: auto,
 ) = context {
   let dati = totali-risposte(voci: voci)
   let tot = if totale == auto { dati.totale } else { totale }
   let max = if massimo == auto { dati.massimo } else { massimo }
   let voto = calcola-voto(tot, base: base, voto-min: voto-min, voto-max: voto-max)
-  let lode = tot > base
+  let lode = if lode-soglia == auto { tot > base } else { tot >= lode-soglia }
 
   block(
     width: 100%,
@@ -138,6 +139,7 @@
   base: 100,
   voto-min: 3,
   voto-max: 10,
+  lode-soglia: auto,
   titolo: none,
 ) = {
   let gruppi = raggruppa-per-sezione(voci)
@@ -148,7 +150,7 @@
     massimo
   }
   let voto = calcola-voto(totale, base: base, voto-min: voto-min, voto-max: voto-max)
-  let lode = totale > base
+  let lode = if lode-soglia == auto { totale > base } else { totale >= lode-soglia }
 
   let righe = gruppi
     .map(gruppo => {
@@ -279,6 +281,83 @@
   ]
 }
 
+/// Summary table for a JSON-driven correction.
+///
+/// `categories` uses the same shape as the exam summary, with each exercise
+/// also containing `score` and `answer-file`.
+#let griglia-correzioni2(
+  categories,
+  base: 100,
+  voto-min: 3,
+  voto-max: 10,
+  lode-soglia: auto,
+  titolo: none,
+) = {
+  let righe = ()
+  let totale = 0
+  let massimo = 0
+
+  for category in categories {
+    let category-score = category.exercises.fold(0, (acc, exercise) => acc + exercise.score)
+    let category-points = category.exercises.fold(0, (acc, exercise) => acc + exercise.points)
+    totale = totale + category-score
+    massimo = massimo + category-points
+
+    righe = righe + (table.cell(
+      colspan: 4,
+      fill: palette.tint,
+      inset: (x: 9pt, y: 6pt),
+      align: left,
+    )[#text(weight: 800, fill: palette.accent-dark)[#category.title]],)
+
+    for exercise in category.exercises {
+      righe = righe + (
+        [#(category.id + str(exercise.numero))],
+        exercise.title,
+        raw(exercise.answer-file),
+        text(weight: 700)[
+          #fmt-punti(exercise.score) / #fmt-punti(exercise.points)
+        ],
+      )
+    }
+  }
+
+  let voto = calcola-voto(totale, base: base, voto-min: voto-min, voto-max: voto-max)
+  let lode = if lode-soglia == auto { totale > base } else { totale >= lode-soglia }
+
+  let footer = (
+    table.cell(colspan: 2, align: right)[*Totale*],
+    table.cell(colspan: 2, align: right)[
+      #text(weight: 800)[#fmt-punti(totale) / #fmt-punti(massimo)]
+    ],
+    table.cell(colspan: 3, align: right)[*Voto in decimi*],
+    text(weight: 800)[
+      #fmt-voto(voto) / #fmt-voto(voto-max) #if lode [ e lode]
+    ],
+  )
+
+  block(above: spazio.xl, below: spazio.lg, breakable: false, width: 100%)[
+    #if titolo != none {
+      titolo-griglia(titolo)
+    }
+    #block(
+      radius: 3pt,
+      clip: true,
+      stroke: 0.5pt + luma(195),
+    )[
+      #table(
+        columns: (auto, 1fr, auto, auto),
+        inset: (x: 9pt, y: 5pt),
+        align: (left, left, left, right),
+        stroke: 0.5pt + luma(215),
+        table.header([*Voce*], [*Dettaglio*], [*File risposta*], [*Punteggio*]),
+        ..righe,
+        ..footer,
+      )
+    ]
+  ]
+}
+
 /// Backwards-compatible alias for `griglia-voti2`.
 #let griglia-punteggi2(categories, titolo: none) = griglia-voti2(categories, titolo: titolo)
 
@@ -292,6 +371,7 @@
   base: 100,
   voto-min: 3,
   voto-max: 10,
+  lode-soglia: auto,
   titolo: none,
 ) = context {
   griglia-voci(
@@ -300,6 +380,7 @@
     base: base,
     voto-min: voto-min,
     voto-max: voto-max,
+    lode-soglia: lode-soglia,
     titolo: titolo,
   )
 }

@@ -41,12 +41,12 @@
   }
 }
 
-/// Render one exam variant from a JSON descriptor.
+/// Load and validate one exam variant from a JSON descriptor.
 ///
 /// Pass a Typst `path` to resolve it relative to the document, or a
 /// root-relative string (it must start with `/`). Paths inside the descriptor
 /// are resolved against the descriptor's directory.
-#let render-exam(exam-path, set-name) = {
+#let load-exam(exam-path, set-name) = {
   if type(exam-path) == str and not exam-path.starts-with("/") {
     panic("exam: json-path must start with '/': " + exam-path)
   }
@@ -476,16 +476,71 @@
       }
     }
 
+    let grade-min = if has-key(descriptor, "grade-min") {
+      descriptor.at("grade-min")
+    } else {
+      3
+    }
+    let grade-max = if has-key(descriptor, "grade-max") {
+      descriptor.at("grade-max")
+    } else {
+      10
+    }
+    let laude-threshold = if has-key(descriptor, "laude-threshold") {
+      descriptor.at("laude-threshold")
+    } else {
+      total
+    }
+
+    if type(grade-min) != int and type(grade-min) != float {
+      fail("grade-min deve essere un numero")
+    }
+    if type(grade-max) != int and type(grade-max) != float {
+      fail("grade-max deve essere un numero")
+    }
+    if type(laude-threshold) != int and type(laude-threshold) != float {
+      fail("laude-threshold deve essere un numero")
+    }
+    if grade-min >= grade-max {
+      fail("grade-min deve essere minore di grade-max")
+    }
+    if laude-threshold <= 0 {
+      fail("laude-threshold deve essere positivo")
+    }
+
+    let preamble-path = if has-key(descriptor, "preamble-file") {
+      resolve-path(
+        base-dir,
+        required-string(descriptor, "preamble-file", "preamble-file"),
+      )
+    } else {
+      none
+    }
+
     (
       variant: set-name,
       metadata: metadata,
       categories: resolved-categories,
       total: total,
       max-points: expected,
+      grade-min: grade-min,
+      grade-max: grade-max,
+      laude-threshold: laude-threshold,
+      descriptor: descriptor,
+      base-dir: base-dir,
+      preamble-path: preamble-path,
     )
   }
 
-  let exam = resolve-exam(set-name)
+  resolve-exam(set-name)
+}
+
+/// Render one exam variant from a JSON descriptor.
+///
+/// Pass a Typst `path` to resolve it relative to the document, or a
+/// root-relative string (it must start with `/`).
+#let render-exam(exam-path, set-name) = {
+  let exam = load-exam(exam-path, set-name)
   let meta = exam.metadata
 
   set document(title: meta.title, author: meta.author)
@@ -513,12 +568,8 @@
     descriptors: descriptors,
     student-data: none,
   )
-  if has-key(descriptor, "preamble-file") {
-    let preamble-path = resolve-path(
-      base-dir,
-      required-string(descriptor, "preamble-file", "preamble-file"),
-    )
-    include preamble-path
+  if exam.preamble-path != none {
+    include exam.preamble-path
   }
 
   istruzioni-consegna(categories: exam.categories)

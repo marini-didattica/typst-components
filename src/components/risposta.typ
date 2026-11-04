@@ -17,6 +17,17 @@
   #text(fill: luma(125), style: "italic")[Nessuna risposta consegnata.]
 ]
 
+/// Placeholder shown when the answer is in a file that was not imported.
+#let risposta-nel-file(file) = block(
+  width: 100%,
+  fill: luma(249),
+  stroke: (paint: luma(195), thickness: 0.6pt, dash: "dotted"),
+  radius: 3pt,
+  inset: (x: 10pt, y: 8pt),
+)[
+  #text(fill: luma(125), style: "italic")[Risposta nel file #raw(file).]
+]
+
 /// Answer component used in corrections. Same fields as `quesito`, plus
 /// `score` (points awarded).
 #let risposta(

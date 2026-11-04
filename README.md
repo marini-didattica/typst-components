@@ -26,9 +26,10 @@ cover to the default delivery-instructions callout.
 **Exam components**
 
 - `quesito`, `quesito2` — theory questions, exercises and snippets; `quesito2` also shows the answer file name
-- `render-exam` — load and render one set from a JSON exam descriptor
-- `istruzioni-consegna`, `risposta`, `commento`, `nessuna-risposta`
-- `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`
+- `load-exam`, `render-exam` — load and render one set from a JSON exam descriptor
+- `load-correction`, `render-correction` — load and render a JSON correction descriptor
+- `istruzioni-consegna`, `risposta`, `risposta-nel-file`, `commento`, `nessuna-risposta`
+- `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`, `griglia-correzioni2`
 - `cover`, `nota`, `template`, `esempi`
 - `callout`, `checklist`, `consegna`
 - `stelle`, `righe-risposta`, `intestazione-correzione`
@@ -78,8 +79,10 @@ typst-components/
 │   │       └── lib.typ
 │   ├── documents/
 │   │   ├── exam.typ
+│   │   ├── correction.typ
 │   │   └── programma.typ
-│   └── exam.typ                # compatibility wrapper
+│   ├── exam.typ                # compatibility wrapper
+│   └── correction.typ          # compatibility wrapper
 └── typst.toml
 ```
 
@@ -139,6 +142,20 @@ document that imports it:
 
 Root-relative strings (starting with `/`) remain supported. Relative paths
 inside the descriptor are resolved against the descriptor's directory.
+
+The descriptor may also configure grading for its correction sheets:
+
+```json
+{
+  "grade-min": 3,
+  "grade-max": 10,
+  "laude-threshold": 110
+}
+```
+
+`grade-min` defaults to `3`, `grade-max` to `10`, and `laude-threshold` to the
+selected set's maximum score. Scores are mapped from `0..laude-threshold` onto
+`grade-min..grade-max`; reaching the threshold adds “e lode”.
 
 ## Answer files
 
@@ -220,12 +237,63 @@ typst compile --root . content/raw/public/prime/1d/programma.typ
 ## Spacing
 
 The exam rhythm comes from `spazio`; the programme rhythm from
-`spazio-didattica`. `quesito`, `risposta`, `griglia-punteggi()` and
-`griglia-correzione()` own the spacing around and inside their own blocks, so
-documents should not insert manual `#v(...)` between questions, answers or
-summaries.
+`spazio-didattica`. `quesito`, `risposta`, `griglia-punteggi()`,
+`griglia-correzione()` and `griglia-correzioni2()` own the spacing around and
+inside their own blocks, so documents should not insert manual `#v(...)`
+between questions, answers or summaries.
 
-## Corrections
+## JSON-driven corrections
+
+A correction descriptor mirrors the exam descriptor. Paths are resolved
+relative to the correction JSON, and exercise ids must match the selected set.
+
+```json
+{
+  "$schema": "./correction.schema.json",
+  "answer-folder": "../risposte/battocletti-alessandro",
+  "test-json": "../testo/prova-1.json",
+  "set": "a",
+
+  "student-name": "Alessandro Battocletti",
+  "class": "2C",
+  "date": "29 ottobre 2026",
+
+  "import-answers": true,
+
+  "exercises": {
+    "E1": {
+      "answer-file": "esercizio1.py",
+      "score": 10,
+      "comment": "Corretto."
+    },
+    "E2": null
+  }
+}
+```
+
+- Every exercise in the selected set must be present, either as an object or
+  `null`. `null` renders the “Nessuna risposta consegnata.” placeholder with a
+  score of 0.
+- Non-null entries require `answer-file` and `score`.
+- `import-answers` defaults to `true`. A per-exercise `import-answer` (or
+  `import-answers`) overrides it. When import is disabled, the correction shows
+  a `Risposta nel file …` placeholder instead of the file contents.
+- `comment` is interpreted as Typst markup and rendered with `commento`.
+- `student-name`, `class`, `date`, `title` and `subtitle` are optional; missing
+  values fall back to the correction file name and the exam metadata.
+
+An entry point only needs the descriptor path:
+
+```typ
+#import "/typst-components/src/correction.typ": render-correction
+
+#render-correction(path("battocletti-alessandro.json"))
+```
+
+`render-correction` renders the header, all answers and comments, and the final
+score summary with the answer-file column.
+
+## Manual correction components
 
 `risposta` has the same fields as `quesito`, plus `score` (points awarded):
 
