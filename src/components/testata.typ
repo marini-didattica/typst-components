@@ -1,6 +1,6 @@
 // Question header: badge, title, difficulty stars and score.
 
-#import "../theme/palette.typ": palette, font-mono
+#import "../theme/palette.typ": palette
 #import "../theme/spacing.typ": spazio
 #import "punteggi.typ": fmt-punti
 #import "stelle.typ": stelle
@@ -28,23 +28,6 @@
     text(weight: 700, size: 12pt, fill: palette.ink)[#titolo]
   }
 
-  let file-badge = if file == none {
-    none
-  } else {
-    box(
-      fill: luma(238),
-      stroke: 0.5pt + luma(198),
-      inset: (x: 5pt, y: 1.5pt),
-      radius: 2.5pt,
-    )[#text(font: (font-mono,), size: 0.72em, fill: luma(75))[#file]]
-  }
-
-  let cella-titolo = if file-badge == none {
-    testo-titolo
-  } else {
-    stack(dir: ttb, spacing: spazio.xs, testo-titolo, file-badge)
-  }
-
   let testo-punti = if ottenuto == none {
     text(weight: 700, fill: palette.accent-dark)[#fmt-punti(massimo) punti]
   } else {
@@ -54,9 +37,9 @@
   }
 
   let celle = if diff == none {
-    (left-badge, cella-titolo, testo-punti)
+    (left-badge, testo-titolo, testo-punti)
   } else {
-    (left-badge, cella-titolo, stelle(diff), testo-punti)
+    (left-badge, testo-titolo, stelle(diff), testo-punti)
   }
 
   block(
@@ -76,4 +59,11 @@
       ..celle,
     )
   ]
+
+  if file != none {
+    v(spazio.sm)
+    text(size: 8.5pt, fill: luma(120), style: "italic")[
+      Consegna questo esercizio nel file #raw(file)
+    ]
+  }
 }
