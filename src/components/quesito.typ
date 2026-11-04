@@ -2,6 +2,7 @@
 
 #import "../theme/labels.typ": sezione-corrente
 #import "../theme/spacing.typ": spazio
+#import "nomi-file.typ": nome-file
 #import "righe-risposta.typ": righe-risposta
 #import "riepilogo.typ": registro-quesiti
 #import "testata.typ": testata
@@ -78,15 +79,18 @@
 /// - `difficulty`: number of difficulty stars, or `none`
 ///
 /// The problem body is passed separately, usually as `[#include item.file]`.
+/// The header also shows the name of the solution file, derived from the item
+/// tag and number (e.g. `esercizio01.py`).
 #let quesito2(item, body) = {
   let numero = item.at("numero")
   let tag = item.at("tag")
   let title = item.at("title", default: none)
   let points = item.at("points", default: 0)
   let difficulty = item.at("difficulty", default: none)
+  let file = nome-file(item, padding: 2)
 
   block(above: spazio.xl, width: 100%)[
-    #testata(tag, numero, title, diff: difficulty, massimo: points)
+    #testata(tag, numero, title, diff: difficulty, massimo: points, file: file)
     #v(spazio.page.md)
     #body
   ]

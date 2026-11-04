@@ -7,6 +7,10 @@ This package merges the former `typst-theme` and `typst-components`
 repositories. The theme is no longer a separate dependency: colours, spacing,
 labels, page setup and document templates all live here.
 
+JSON-generated exams no longer ship a shared preamble. The descriptor can point
+to an optional `preamble-file`; without it, the renderer goes straight from the
+cover to the default delivery-instructions callout.
+
 ## What is exported
 
 **Theme**
@@ -21,7 +25,7 @@ labels, page setup and document templates all live here.
 
 **Exam components**
 
-- `quesito`, `quesito2` — theory questions, exercises and snippets
+- `quesito`, `quesito2` — theory questions, exercises and snippets; `quesito2` also shows the solution file name
 - `render-exam` — load and render one set from a JSON exam descriptor
 - `istruzioni-consegna`, `risposta`, `commento`, `nessuna-risposta`
 - `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`
@@ -64,6 +68,7 @@ typst-components/
 │   │   ├── quesito.typ
 │   │   ├── risposta.typ
 │   │   ├── riepilogo.typ
+│   │   ├── nomi-file.typ
 │   │   ├── compatibilita.typ
 │   │   ├── copertina.typ
 │   │   └── programma/
@@ -74,8 +79,6 @@ typst-components/
 │   ├── documents/
 │   │   ├── exam.typ
 │   │   └── programma.typ
-│   ├── assets/
-│   │   └── preamble.typ
 │   └── exam.typ                # compatibility wrapper
 └── typst.toml
 ```
@@ -239,9 +242,19 @@ Documents that used to import two packages now import one:
 #import "/typst-components/src/lib.typ": theme, cover, quesito
 ```
 
-The former `/typst-theme/src/preamble.typ` path is now
-`/typst-components/src/assets/preamble.typ`. The JSON exam renderer uses this
-path as its default preamble.
+The former shared preamble path no longer exists. A JSON exam descriptor can
+still add exam-specific content after the cover:
+
+```json
+{
+  "preamble-file": "preamble.typ"
+}
+```
+
+The path is relative to the descriptor's directory (or root-relative when it
+starts with `/`). The referenced Typst file is included after the cover and
+before the automatic delivery-instructions callout. If the key is omitted, no
+preamble is included.
 
 ## Development
 
