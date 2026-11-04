@@ -3,6 +3,8 @@
 #import "../theme/palette.typ": palette
 #import "../theme/spacing.typ": spazio
 #import "../theme/labels.typ": etichetta
+#import "nomi-file.typ": nome-file
+#import "testata.typ": testata
 
 /// Internal labelled block used by templates and answers.
 #let sezione-blocco(titolo, corpo) = stack(
@@ -65,14 +67,85 @@
 ]
 
 /// Standard delivery instructions for generated exams.
-#let istruzioni-consegna(titolo: "Istruzioni per la consegna") = callout(titolo)[
-  - Crea una cartella `cognome-nome`, tutto minuscolo. Se hai più nomi o più cognomi,
-    mettili tutti, concatenati dal carattere `-`.
-  - Crea un file per ciascun esercizio. Il nome è quello indicato nell'intestazione,
-    tutto minuscolo e senza spazi: estensione `.py` per gli esercizi di programmazione,
-    `.txt` per le risposte alle domande e agli snippet.
-  - Non modificare i file di partenza e non consegnare cartelle compresse.
-]
+///
+/// `categories` is the resolved category list of the exam. When provided, the
+/// callout adds the table of files the students must submit, generated from
+/// each category's title and each exercise's tag and number.
+#let istruzioni-consegna(
+  categories: (),
+  titolo: "Istruzioni per la consegna",
+) = {
+  let righe = ()
+  for category in categories {
+    if category.exercises.len() > 0 {
+      let files = category
+        .exercises
+        .map(exercise => raw(nome-file(exercise)))
+        .join(", ")
+      righe = righe + ((category.title, files),)
+    }
+  }
+
+  callout(titolo)[
+    - Aprite il *file explorer* (icona cartella sulla barra degli strumenti in basso) e navigate nella cartella `Questo Pc -> temi_xx`.
+
+    - Create una nuova cartella, denominata `cognome-nome`, *tutto minuscolo*. Se avete più nomi o più cognomi, metteteli tutti, concatenati dal carattere
+      `-` (trattino). Ad esempio:
+
+      #box(fill: luma(255), inset: 9pt, radius: 3pt)[
+        #block(
+          radius: 3pt,
+          clip: true,
+          stroke: 0.5pt + luma(195),
+        )[
+          #table(
+            columns: (auto, 1fr),
+            inset: (x: 9pt, y: 6pt),
+            align: left,
+            stroke: 0.5pt + luma(215),
+            table.header([*Vostro nome*], [*Nome cartella*]),
+            [Marini Mattia], [`marini-mattia`],
+            [Olaizola Elisa Maitea], [`olaizola-elisa-maitea`],
+          )
+        ]
+      ]
+
+    - Dentro a questa cartella, va creato *un file per ciascun esercizio*. Il nome del file è quello indicato
+      nel tag accanto all'intestazione dell'esercizio, trasformato in modo che sia *tutto minuscolo e senza
+      spazi*: l'estensione deve essere `.py` per gli esercizi di programmazione e `.txt` per le
+      risposte alle domande e agli snippet.
+
+
+      #box(fill: luma(255), inset: 9pt, radius: 3pt)[
+        #testata("Esercizio", 1, "Esempio esercizio")
+        #v(0.5em)
+        #text(size: 8.5pt, fill: luma(120), style: "italic")[
+          Ad esempio, per questo esercizio va creato un file `esercizio1.py`
+        ]
+      ]
+
+    #if righe.len() > 0 [
+      Per questa prova nello specifico mi aspetto che consegniate i seguenti file:
+
+      #box(fill: luma(255), inset: 9pt, radius: 3pt)[
+        #block(
+          radius: 3pt,
+          clip: true,
+          stroke: 0.5pt + luma(195),
+        )[
+          #table(
+            columns: (auto, 1fr),
+            inset: (x: 9pt, y: 6pt),
+            align: left,
+            stroke: 0.5pt + luma(215),
+            table.header([*Parte*], [*File da consegnare*]),
+            ..righe.flatten(),
+          )
+        ]
+      ]
+    ]
+  ]
+}
 
 #let checklist(titolo, items) = block(
   breakable: false,

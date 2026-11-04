@@ -468,16 +468,15 @@
     descriptors: descriptors,
     student-data: none,
   )
-  pagebreak()
-
-  let preamble-path = if has-key(descriptor, "preamble-file") {
-    resolve-path(base-dir, required-string(descriptor, "preamble-file", "preamble-file"))
-  } else {
-    "/typst-components/src/assets/preamble.typ"
+  if has-key(descriptor, "preamble-file") {
+    let preamble-path = resolve-path(
+      base-dir,
+      required-string(descriptor, "preamble-file", "preamble-file"),
+    )
+    include preamble-path
   }
-  include preamble-path
 
-  istruzioni-consegna()
+  istruzioni-consegna(categories: exam.categories)
   griglia-voti2(exam.categories, titolo: "Riepilogo dei punteggi")
   pagebreak()
 
