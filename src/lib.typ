@@ -16,4 +16,5 @@
   render-exam,
 )
 #import "documents/correction.typ": load-correction, render-correction
+#import "documents/stats.typ": load-stats, render-stats
 #import "documents/programma.typ": programma-didattica

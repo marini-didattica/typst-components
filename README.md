@@ -28,6 +28,7 @@ cover to the default delivery-instructions callout.
 - `quesito`, `quesito2` — theory questions, exercises and snippets; `quesito2` also shows the answer file name
 - `load-exam`, `render-exam` — load and render one set from a JSON exam descriptor
 - `load-correction`, `render-correction` — load and render a JSON correction descriptor
+- `load-stats`, `render-stats` — load a test folder and render class statistics
 - `istruzioni-consegna`, `risposta`, `risposta-nel-file`, `commento`, `nessuna-risposta`
 - `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`, `griglia-correzioni2`
 - `cover`, `nota`, `template`, `esempi`
@@ -82,9 +83,13 @@ typst-components/
 │   ├── documents/
 │   │   ├── exam.typ
 │   │   ├── correction.typ
+│   │   ├── stats.typ
 │   │   └── programma.typ
 │   ├── exam.typ                # compatibility wrapper
-│   └── correction.typ          # compatibility wrapper
+│   ├── correction.typ          # compatibility wrapper
+│   └── stats.typ               # compatibility wrapper
+├── bin/
+│   └── typst-stats             # command-line wrapper
 └── typst.toml
 ```
 
@@ -157,7 +162,7 @@ The descriptor may also configure grading for its correction sheets:
 
 `grade-min` defaults to `3`, `grade-max` to `10`, and `laude-threshold` to the
 selected set's maximum score. Scores are mapped from `0..laude-threshold` onto
-`grade-min..grade-max`; reaching the threshold adds “e lode”.
+`grade-min..grade-max`; scores above the threshold add “e lode”.
 
 ## Answer files
 
@@ -320,6 +325,43 @@ An entry point only needs the descriptor path:
 
 `render-correction` renders the header, all answers and comments, and the final
 score summary with the answer-file column.
+
+## Statistics
+
+`render-stats` reads an exam folder with the usual `testo/` and `correzioni/`
+subfolders and renders a set of class statistics: one score table per set, a
+distribution chart for every exercise, the total-score and grade
+distributions, and the mean percentage per exercise.
+
+```typ
+#import "/typst-components/src/lib.typ": render-stats
+
+#render-stats(
+  path("content/raw/private/admin/seconde/2c/prova-1"),
+  (
+    "battocletti-alessandro",
+    "bonetti-alessandra",
+    "dagostin-davide",
+  ),
+)
+```
+
+The first argument is the test folder; the second is the list of correction
+stems to include. Every listed student must have a correction descriptor.
+
+The command-line wrapper checks that for you and reports missing corrections:
+
+```sh
+typst-components/bin/typst-stats \
+  materiale/content/raw/private/admin/seconde/2c/prova-1 \
+  "battocletti-alessandro,bonetti-alessandra,dagostin-davide"
+```
+
+The second argument may also be a file with one student stem per line. The
+output defaults to `<test-folder>/misc/stats.pdf`; use `--out` to override it
+and `--root` if the Typst project root cannot be found automatically.
+
+Charts use [`@preview/cetz:0.5.0`](https://typst.app/universe/package/cetz).
 
 ## Manual correction components
 

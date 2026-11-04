@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+#
+# Generate the statistics PDF for one exam folder.
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: typst-stats <test-folder> <students> [options]
+
+  <test-folder>  Folder containing the standard `testo/` and `correzioni/`
+                 subfolders.
+  <students>     Complete list of correction stems, comma-separated, or a file
+                 with one stem per line. Missing correction files are skipped.
+
+Options:
+  -o, --out <file>   Output PDF (default: <test-folder>/misc/stats.pdf)
+  -r, --root <dir>   Typst project root (default: first parent containing
+                     typst-components/src/lib.typ)
+  -h, --help         Show this help
+EOF
+}
+
+die() {
+  printf 'typst-stats: %s\n' "$*" >&2
+  exit 1
+}
+
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+quote_typst() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+join_typst() {
+  local first=1
+  local item
+  for item in "$@"; do
+    if (( first )); then
+      first=0
+    else
+      printf ', '
+    fi
+    quote_typst "$item"
+  done
+}
+
+out=""
+root=""
+positional=()
+
+while (($#)); do
+  case "$1" in
+    -o|--out)
+      (($# >= 2)) || die "missing value for $1"
+      out="$2"
+      shift 2
+      ;;
+    -o=*|--out=*)
+      out="${1#*=}"
+      shift
+      ;;
+    -r|--root)
+      (($# >= 2)) || die "missing value for $1"
+      root="$2"
+      shift 2
+      ;;
+    -r=*|--root=*)
+      root="${1#*=}"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      positional+=("$@")
+      break
+      ;;
+    -*)
+      die "unknown option: $1"
+      ;;
+    *)
+      positional+=("$1")
+      shift
+      ;;
+  esac
+done
+
+((${#positional[@]} == 2)) || {
+  usage >&2
+  exit 2
+}
+
+test_dir="${positional[0]}"
+students_arg="${positional[1]}"
+
+[[ -d "$test_dir" ]] || die "test folder not found: $test_dir"
+[[ -d "$test_dir/correzioni" ]] || die "correzioni/ not found in $test_dir"
+[[ -d "$test_dir/testo" ]] || die "testo/ not found in $test_dir"
+
+test_dir="$(cd -- "$test_dir" && pwd -P)"
+
+if [[ -n "$root" ]]; then
+  [[ -d "$root" ]] || die "project root not found: $root"
+  root="$(cd -- "$root" && pwd -P)"
+else
+  candidate="$test_dir"
+  while :; do
+    if [[ -f "$candidate/typst-components/src/lib.typ" ]]; then
+      root="$candidate"
+      break
+    fi
+    [[ "$candidate" == "/" ]] && break
+    candidate="$(dirname -- "$candidate")"
+  done
+  [[ -n "$root" ]] || die "could not find typst-components above $test_dir (use --root)"
+fi
+
+command -v typst >/dev/null 2>&1 || die "typst is not installed or not in PATH"
+
+raw_students=()
+if [[ -f "$students_arg" ]]; then
+  while IFS= read -r line; do
+    raw_students+=("$line")
+  done < "$students_arg"
+else
+  IFS=',' read -r -a raw_students <<< "$students_arg"
+fi
+
+declare -A seen=()
+selected=()
+
+for raw in "${raw_students[@]}"; do
+  student="$(trim "$raw")"
+  [[ -n "$student" ]] || continue
+  student="$(basename -- "$student")"
+  student="${student%.json}"
+  [[ -n "$student" ]] || continue
+  [[ -n "${seen[$student]:-}" ]] && continue
+  seen[$student]=1
+
+  if [[ -f "$test_dir/correzioni/$student.json" ]]; then
+    selected+=("$student")
+  else
+    printf 'typst-stats: correction file not found for %s — skipping\n' "$student" >&2
+  fi
+done
+
+((${#selected[@]} > 0)) || die "no correction files found for the given students"
+
+shopt -s nullglob
+exam_candidates=("$test_dir/testo"/*.json)
+shopt -u nullglob
+
+((${#exam_candidates[@]} > 0)) || die "no JSON descriptor found in $test_dir/testo"
+
+test_name="$(basename -- "$test_dir")"
+if [[ -f "$test_dir/testo/$test_name.json" ]]; then
+  exam_json="$test_dir/testo/$test_name.json"
+elif ((${#exam_candidates[@]} == 1)); then
+  exam_json="${exam_candidates[0]}"
+else
+  die "multiple JSON descriptors in $test_dir/testo; rename one to $test_name.json"
+fi
+exam_rel="${exam_json#"$test_dir"/}"
+
+test_rel="$(realpath --relative-to="$root" "$test_dir")"
+test_arg="/$test_rel"
+
+if [[ -z "$out" ]]; then
+  out="$test_dir/misc/stats.pdf"
+fi
+mkdir -p -- "$(dirname -- "$out")"
+
+tmpdir="$(mktemp -d "$root/.typst-stats.XXXXXX")"
+trap 'rm -rf -- "$tmpdir"' EXIT
+stub="$tmpdir/stats.typ"
+
+{
+  printf '#import "/typst-components/src/lib.typ": render-stats\n\n'
+  printf '#render-stats(\n'
+  printf '  %s,\n' "$(quote_typst "$test_arg")"
+  printf '  (%s,),\n' "$(join_typst "${selected[@]}")"
+  printf '  exam-file: %s,\n' "$(quote_typst "$exam_rel")"
+  printf ')\n'
+} > "$stub"
+
+typst compile --root "$root" "$stub" "$out"
+printf 'typst-stats: wrote %s\n' "$out"

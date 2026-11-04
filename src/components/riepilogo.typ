@@ -77,7 +77,7 @@
   let tot = if totale == auto { dati.totale } else { totale }
   let max = if massimo == auto { dati.massimo } else { massimo }
   let voto = calcola-voto(tot, base: base, voto-min: voto-min, voto-max: voto-max)
-  let lode = if lode-soglia == auto { tot > base } else { tot >= lode-soglia }
+  let lode = if lode-soglia == auto { tot > base } else { tot > lode-soglia }
 
   block(
     width: 100%,
@@ -150,7 +150,7 @@
     massimo
   }
   let voto = calcola-voto(totale, base: base, voto-min: voto-min, voto-max: voto-max)
-  let lode = if lode-soglia == auto { totale > base } else { totale >= lode-soglia }
+  let lode = if lode-soglia == auto { totale > base } else { totale > lode-soglia }
 
   let righe = gruppi
     .map(gruppo => {
@@ -323,7 +323,7 @@
   }
 
   let voto = calcola-voto(totale, base: base, voto-min: voto-min, voto-max: voto-max)
-  let lode = if lode-soglia == auto { totale > base } else { totale >= lode-soglia }
+  let lode = if lode-soglia == auto { totale > base } else { totale > lode-soglia }
 
   let footer = (
     table.cell(colspan: 2, align: right)[*Totale*],
