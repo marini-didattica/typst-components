@@ -31,6 +31,7 @@ cover to the default delivery-instructions callout.
 - `istruzioni-consegna`, `risposta`, `risposta-nel-file`, `commento`, `nessuna-risposta`
 - `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`, `griglia-correzioni2`
 - `cover`, `nota`, `template`, `esempi`
+- `dislocazione` — classroom seating plan with automatic numbering
 - `callout`, `checklist`, `consegna`
 - `stelle`, `righe-risposta`, `intestazione-correzione`
 
@@ -70,6 +71,7 @@ typst-components/
 │   │   ├── risposta.typ
 │   │   ├── riepilogo.typ
 │   │   ├── nomi-file.typ
+│   │   ├── dislocazione.typ
 │   │   ├── compatibilita.typ
 │   │   ├── copertina.typ
 │   │   └── programma/
@@ -186,6 +188,32 @@ written:
 a number. If `answer-file` is omitted, the renderer falls back to the
 conventional name derived from the badge tag and number. The answer file is
 shown below the question header and in the `griglia-voti2` summary table.
+
+## Seating plans
+
+`dislocazione` renders a classroom seating table with automatic `temi_XX`
+numbering.
+
+```typ
+#import "/typst-components/src/lib.typ": dislocazione
+
+#dislocazione(
+  (
+    ("Battocletti Alessandro", "Bonetti Alessandra", none),
+    ("Dal Savio Daniele", "Ferrari Carlo", "Filippi Renato"),
+  ),
+  absent: ("Battocletti Alessandro",),
+)
+```
+
+- Each row is an array; use `none` for an empty desk.
+- `absent` contains the raw student names that should get a dashed border.
+- The cattedra spans the first two columns by default; pass `cattedra: none` to
+  omit it or an integer to change the span.
+- Names are uppercased and split on the last space. Use `"Dal Savio|Daniele"` to
+  force the line break.
+- Numbering is row-major, skips empty desks, and includes absent students by
+  default. Pass `numbering: false` or `start:` to change that.
 
 ## Usage: programme
 

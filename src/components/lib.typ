@@ -40,6 +40,7 @@
   risposta-snippet,
 )
 #import "copertina.typ": cover
+#import "dislocazione.typ": dislocazione
 #import "programma/lib.typ": (
   copertina-programma,
   registro-sezioni,
