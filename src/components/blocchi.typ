@@ -111,7 +111,7 @@
       ]
 
     - Dentro a questa cartella, va creato *un file per ciascun esercizio*. Il nome del file è quello indicato
-      nel tag accanto all'intestazione dell'esercizio, trasformato in modo che sia *tutto minuscolo e senza
+      nell'intestazione dell'esercizio, trasformato in modo che sia *tutto minuscolo e senza
       spazi*: l'estensione deve essere `.py` per gli esercizi di programmazione e `.txt` per le
       risposte alle domande e agli snippet.
 
