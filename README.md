@@ -25,7 +25,7 @@ cover to the default delivery-instructions callout.
 
 **Exam components**
 
-- `quesito`, `quesito2` — theory questions, exercises and snippets; `quesito2` also shows the solution file name
+- `quesito`, `quesito2` — theory questions, exercises and snippets; `quesito2` also shows the answer file name
 - `render-exam` — load and render one set from a JSON exam descriptor
 - `istruzioni-consegna`, `risposta`, `commento`, `nessuna-risposta`
 - `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`
@@ -125,6 +125,35 @@ project/
 registers each item in a document-global state. `griglia-punteggi()` reads that
 state with `state.final()`, so it can be placed before the questions, after
 them, or anywhere in between. It groups rows by the last level-1 heading.
+
+## Answer files
+
+Each exercise can declare the name of the file where the answer must be
+written:
+
+```json
+{
+  "id": "E1",
+  "file": "domande/E1.typ",
+  "answer-file": "esercizio{ordinal}.py",
+  "sets": ["a", "b"],
+  "title": "Media degli elementi",
+  "points": 12,
+  "difficulty": 2
+}
+```
+
+`answer-file` may contain these placeholders:
+
+- `{ordinal}` — position of the exercise inside its category for the current set;
+- `{id}` — exercise id from the descriptor (e.g. `E4`);
+- `{category}` — category id (e.g. `E`);
+- `{tag}` — lowercase badge label (e.g. `esercizio`);
+- `{set}` — current exam variant (e.g. `b`).
+
+`{ordinal}` depends on the set: an exercise excluded from a set does not consume
+a number. If `answer-file` is omitted, the renderer falls back to the
+conventional name derived from the badge tag and number.
 
 ## Usage: programme
 

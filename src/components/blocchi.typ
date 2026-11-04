@@ -3,7 +3,7 @@
 #import "../theme/palette.typ": palette
 #import "../theme/spacing.typ": spazio
 #import "../theme/labels.typ": etichetta
-#import "nomi-file.typ": nome-file
+#import "nomi-file.typ": nome-risposta
 #import "testata.typ": testata
 
 /// Internal labelled block used by templates and answers.
@@ -80,7 +80,7 @@
     if category.exercises.len() > 0 {
       let files = category
         .exercises
-        .map(exercise => raw(nome-file(exercise)))
+        .map(exercise => raw(nome-risposta(exercise)))
         .join(", ")
       righe = righe + ((category.title, files),)
     }

@@ -1,4 +1,5 @@
 #import "../components/lib.typ": cover, griglia-voti2, istruzioni-consegna, quesito2
+#import "../components/nomi-file.typ": risolvi-answer-file
 #import "../theme/esame.typ": theme
 
 /// Return the directory portion of a POSIX path.
@@ -246,6 +247,11 @@
           exercise-sets,
           "exercise " + exercise-id,
         )
+        let answer-file-pattern = if has-key(exercise, "answer-file") {
+          required-string(exercise, "answer-file", "exercise " + exercise-id)
+        } else {
+          none
+        }
 
         if title == none {
           fail("exercise " + exercise-id + ".title è obbligatorio")
@@ -275,6 +281,21 @@
         numero = numero + 1
         points = points + points-value
 
+        let answer-file = if answer-file-pattern == none {
+          none
+        } else {
+          risolvi-answer-file(
+            answer-file-pattern,
+            (
+              numero: numero,
+              id: exercise-id,
+              category: category-id,
+              tag: category-tag,
+            ),
+            set-name,
+          )
+        }
+
         resolved = (
           resolved
             + (
@@ -287,6 +308,7 @@
                 points: points-value,
                 difficulty: difficulty,
                 numero: numero,
+                answer-file: answer-file,
               ),
             )
         )
