@@ -1,6 +1,6 @@
 // JSON-driven statistics for an exam and its corrections.
 
-#import "exam.typ": load-exam, path-string, resolve-path
+#import "exam.typ": load-exam, parent-path, path-string, resolve-path
 #import "../components/lib.typ": calcola-voto, fmt-punti, fmt-voto
 #import "../theme/lib.typ": palette, spazio, theme
 #import "@preview/cetz:0.5.0": canvas
@@ -90,16 +90,26 @@
 
 /// Load an exam and the correction descriptors listed in `students`.
 ///
-/// `test-folder` is a Typst `path` or a root-relative string. The exam
-/// descriptor is resolved as `testo/<test-folder-name>.json` unless
-/// `exam-file` overrides it.
+/// `test-folder` and `corrections-folder` are Typst `path`s or root-relative
+/// strings. `test-folder` is the folder containing the exam JSON descriptor
+/// (normally `testo/`); `corrections-folder` is the folder containing the
+/// per-student correction descriptors (normally `correzioni/`).
+///
+/// The exam descriptor is resolved as `<test-folder>/<exam>.json`, where
+/// `<exam>` is the parent folder name when `test-folder` is named `testo/`,
+/// otherwise the test folder name itself. `exam-file` overrides that choice and
+/// is resolved relative to `test-folder`.
 ///
 /// Every student in `students` must have a correction descriptor. Use the
 /// `typst-stats` command to skip missing files automatically.
-#let load-stats(test-folder, students, exam-file: none) = {
-  if type(test-folder) == str and not test-folder.starts-with("/") {
-    panic("stats: test-folder must be a path or a root-relative string")
+#let load-stats(test-folder, corrections-folder, students, exam-file: none) = {
+  let folder-string(label, value) = {
+    if type(value) == str and not value.starts-with("/") {
+      panic("stats: " + label + " must be a path or a root-relative string")
+    }
+    trim-trailing-slash(path-string(value))
   }
+
   if type(students) != array {
     panic("stats: students must be an array of strings")
   }
@@ -109,7 +119,8 @@
     }
   }
 
-  let folder = trim-trailing-slash(path-string(test-folder))
+  let test-dir = folder-string("test-folder", test-folder)
+  let corrections-dir = folder-string("corrections-folder", corrections-folder)
   let selected = students
 
   if selected.len() == 0 {
@@ -117,7 +128,7 @@
   }
 
   let corrections = selected.map(student => {
-    let correction-path = resolve-path(folder, "correzioni/" + student + ".json")
+    let correction-path = resolve-path(corrections-dir, student + ".json")
     let descriptor = json(correction-path)
     if type(descriptor) != dictionary {
       panic("stats: correction descriptor is not an object: " + correction-path)
@@ -133,15 +144,19 @@
     .dedup()
     .sorted()
 
-  let name = file-stem(folder)
-  let default-exam = "testo/" + name + ".json"
+  let default-name = if file-name(test-dir) == "testo" {
+    file-name(parent-path(test-dir))
+  } else {
+    file-name(test-dir)
+  }
+  let default-exam = default-name + ".json"
   let exam-path = if exam-file == none {
-    resolve-path(folder, default-exam)
+    resolve-path(test-dir, default-exam)
   } else {
     if type(exam-file) != str or exam-file.len() == 0 {
       panic("stats: exam-file must be a non-empty string")
     }
-    resolve-path(folder, exam-file)
+    resolve-path(test-dir, exam-file)
   }
 
   let exams = sets
@@ -192,7 +207,8 @@
   let laude-threshold = exam.at("laude-threshold")
 
   (
-    folder: folder,
+    test-folder: test-dir,
+    corrections-folder: corrections-dir,
     exam-path: exam-path,
     corrections: corrections,
     sets: sets,
@@ -212,9 +228,14 @@
 }
 
 /// Render a statistics document for one exam.
-#let render-stats(test-folder, students, exam-file: none) = {
+///
+/// `test-folder` points at the `testo/` folder and `corrections-folder` at the
+/// class's `correzioni/` folder. This lets a shared exam have per-class
+/// corrections and statistics.
+#let render-stats(test-folder, corrections-folder, students, exam-file: none) = {
   let stats = load-stats(
     test-folder,
+    corrections-folder,
     students,
     exam-file: exam-file,
   )

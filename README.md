@@ -28,7 +28,7 @@ cover to the default delivery-instructions callout.
 - `quesito`, `quesito2` — theory questions, exercises and snippets; `quesito2` also shows the answer file name
 - `load-exam`, `render-exam` — load and render one set from a JSON exam descriptor
 - `load-correction`, `render-correction` — load and render a JSON correction descriptor
-- `load-stats`, `render-stats` — load a test folder and render class statistics
+- `load-stats`, `render-stats` — load a test folder and a corrections folder and render class statistics
 - `istruzioni-consegna`, `risposta`, `risposta-nel-file`, `commento`, `nessuna-risposta`
 - `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`, `griglia-correzioni2`
 - `cover`, `nota`, `template`, `esempi`
@@ -328,16 +328,18 @@ score summary with the answer-file column.
 
 ## Statistics
 
-`render-stats` reads an exam folder with the usual `testo/` and `correzioni/`
-subfolders and renders a set of class statistics: one score table per set, a
-distribution chart for every exercise, the total-score and grade
-distributions, and the mean percentage per exercise.
+`render-stats` reads the `testo/` folder and the class's `correzioni/` folder
+separately and renders a set of class statistics: one score table per set, a
+distribution chart for every exercise, the total-score and grade distributions,
+and the mean percentage per exercise. Keeping the two folders separate lets a
+shared exam have per-class corrections and statistics.
 
 ```typ
 #import "/typst-components/src/lib.typ": render-stats
 
 #render-stats(
-  path("content/raw/private/admin/seconde/2c/prova-1"),
+  path("content/raw/private/admin/seconde/2c/prova-1/testo"),
+  path("content/raw/private/admin/seconde/2c/prova-1/correzioni"),
   (
     "battocletti-alessandro",
     "bonetti-alessandra",
@@ -346,20 +348,25 @@ distributions, and the mean percentage per exercise.
 )
 ```
 
-The first argument is the test folder; the second is the list of correction
-stems to include. Every listed student must have a correction descriptor.
+The first argument is the `testo/` folder, the second is the `correzioni/`
+folder, and the third is the list of correction stems to include. Every listed
+student must have a correction descriptor. The exam descriptor defaults to
+`<exam>.json` inside `testo/`, where `<exam>` is the parent folder name; use
+`exam-file:` to override it.
 
-The command-line wrapper checks that for you and reports missing corrections:
+The command-line wrapper checks the paths and reports missing corrections:
 
 ```sh
 typst-components/bin/typst-stats \
-  materiale/content/raw/private/admin/seconde/2c/prova-1 \
+  materiale/content/raw/private/admin/seconde/2c/prova-1/testo \
+  materiale/content/raw/private/admin/seconde/2c/prova-1/correzioni \
   "battocletti-alessandro,bonetti-alessandra,dagostin-davide"
 ```
 
-The second argument may also be a file with one student stem per line. The
-output defaults to `<test-folder>/misc/stats.pdf`; use `--out` to override it
-and `--root` if the Typst project root cannot be found automatically.
+The third argument may also be a file with one student stem per line. The
+output defaults to the class exam's `misc/stats.pdf` (the parent of the
+`correzioni/` folder); use `--out` to override it and `--root` if the Typst
+project root cannot be found automatically.
 
 Charts use [`@preview/cetz:0.5.0`](https://typst.app/universe/package/cetz).
 
