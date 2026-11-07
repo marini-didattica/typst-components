@@ -1,6 +1,16 @@
 // JSON-driven correction sheets.
 
 #import "exam.typ": load-exam, parent-path, path-string, resolve-path
+#import "manifest.typ": (
+  class-from-corrections-dir,
+  file-name,
+  file-stem,
+  load-manifest,
+  load-roster,
+  manifest-path-for,
+  roster-entry,
+  student-name-from-entry,
+)
 #import "../components/lib.typ": (
   commento,
   griglia-correzioni2,
@@ -10,33 +20,6 @@
 )
 #import "../components/nomi-file.typ": nome-risposta
 #import "../theme/esame.typ": theme
-
-/// Return the last segment of a POSIX path.
-#let file-name(value) = {
-  let parts = value.split("/")
-  if parts.len() == 0 { value } else { parts.last() }
-}
-
-/// Return a path's file stem (name without the final extension).
-#let file-stem(value) = {
-  let name = file-name(value)
-  let parts = name.split(".")
-  if parts.len() <= 1 { name } else { parts.slice(0, -1).join(".") }
-}
-
-/// Turn a folder slug such as `battocletti-alessandro` into a display name.
-#let name-from-slug(value) = {
-  value
-    .split("-")
-    .map(part => {
-      if part.len() == 0 {
-        part
-      } else {
-        upper(part.slice(0, 1)) + part.slice(1)
-      }
-    })
-    .join(" ")
-}
 
 /// Infer the raw language from an answer file name.
 #let answer-language(file) = {
@@ -65,14 +48,27 @@
 }
 
 /// Load and validate a correction descriptor.
-#let load-correction(correction-path) = {
+#let load-correction(
+  correction-path,
+  manifest-file: none,
+  students-json: "/content/students.json",
+) = {
   if type(correction-path) == str and not correction-path.starts-with("/") {
     panic("correction: json-path must start with '/': " + correction-path)
   }
 
   let descriptor = json(correction-path)
-  let base-dir = parent-path(path-string(correction-path))
+  let corrections-dir = parent-path(path-string(correction-path))
   let fail(message) = panic("correction: " + message)
+
+  let slug = file-stem(path-string(correction-path))
+  let class-name = class-from-corrections-dir(corrections-dir)
+  let manifest-path = manifest-path-for(corrections-dir, manifest-file: manifest-file)
+  let manifest = load-manifest(manifest-path)
+  let roster = load-roster(students-json)
+  let roster-entry-value = roster-entry(roster, class-name, slug)
+  let student-name = student-name-from-entry(roster-entry-value, slug)
+  let student-class = upper(class-name)
 
   let is-dict(value) = type(value) == dictionary
   let is-array(value) = type(value) == array
@@ -111,13 +107,9 @@
   }
 
   let allowed-keys = (
-    "$schema",
-    "answer-folder",
-    "test-json",
+    "absent",
     "set",
     "import-answers",
-    "student-name",
-    "class",
     "date",
     "title",
     "subtitle",
@@ -133,40 +125,41 @@
     }
   }
 
+  let absent = optional-bool(descriptor, "absent", false, "descriptor")
+  if absent {
+    for key in descriptor.keys() {
+      if key != "absent" {
+        fail("un descrittore assente può contenere solo \"absent\"")
+      }
+    }
+    return (
+      absent: true,
+      student: slug,
+      student-name: student-name,
+      class: student-class,
+    )
+  }
+
   let set-name = required-string(descriptor, "set", "descriptor")
-  let test-json = resolve-path(
-    base-dir,
-    required-string(descriptor, "test-json", "descriptor"),
-  )
-  let exam = load-exam(test-json, set-name)
-  let answer-folder = resolve-path(
-    base-dir,
-    required-string(descriptor, "answer-folder", "descriptor"),
-  )
+  let exam = load-exam(manifest.test-json, set-name)
+  let answer-folder = resolve-path(manifest.answer-folder, slug)
   let import-answers = optional-bool(
     descriptor,
     "import-answers",
-    true,
+    manifest.import-answers,
     "descriptor",
   )
 
-  let student-name = optional-string(
-    descriptor,
-    "student-name",
-    name-from-slug(file-stem(path-string(correction-path))),
-    "descriptor",
-  )
-  let student-class = optional-string(
-    descriptor,
-    "class",
-    exam.metadata.class,
-    "descriptor",
-  )
-  let date = optional-string(descriptor, "date", none, "descriptor")
+  let date = optional-string(descriptor, "date", manifest.date, "descriptor")
+  let default-title = if manifest.title == none {
+    "Correzione — " + exam.metadata.title
+  } else {
+    manifest.title
+  }
   let title = optional-string(
     descriptor,
     "title",
-    "Correzione — " + exam.metadata.title,
+    default-title,
     "descriptor",
   )
   let default-subtitle = "Classe " + student-class + (
@@ -179,7 +172,11 @@
   let subtitle = optional-string(
     descriptor,
     "subtitle",
-    default-subtitle,
+    if manifest.subtitle == none {
+      default-subtitle
+    } else {
+      manifest.subtitle
+    },
     "descriptor",
   )
 
@@ -232,6 +229,7 @@
         comment: none,
         import-answer: false,
         body: none,
+        delivered: false,
       )
 
       if entry != none {
@@ -311,6 +309,7 @@
           comment: comment,
           import-answer: import-answer,
           body: body,
+          delivered: true,
         )
       }
 
@@ -333,10 +332,14 @@
   }
 
   (
+    absent: false,
+    variant: set-name,
+    student: slug,
+    student-name: student-name,
+    class: student-class,
     exam: exam,
     title: title,
     subtitle: subtitle,
-    student-name: student-name,
     categories: resolved-categories,
     total: total,
     maximum: maximum,
@@ -344,8 +347,19 @@
 }
 
 /// Render a full JSON-driven correction sheet.
-#let render-correction(correction-path) = {
-  let correction = load-correction(correction-path)
+#let render-correction(
+  correction-path,
+  manifest-file: none,
+  students-json: "/content/students.json",
+) = {
+  let correction = load-correction(
+    correction-path,
+    manifest-file: manifest-file,
+    students-json: students-json,
+  )
+  if correction.absent {
+    panic("correction: " + correction.student-name + " is absent")
+  }
   let exam = correction.exam
 
   set document(title: correction.title, author: exam.metadata.author)
