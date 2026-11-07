@@ -1,22 +1,18 @@
 // JSON-driven statistics for an exam and its corrections.
 
 #import "exam.typ": load-exam, parent-path, path-string, resolve-path
+#import "manifest.typ": (
+  class-from-corrections-dir,
+  correction-path-for,
+  file-name,
+  load-manifest,
+  load-roster,
+  manifest-path-for,
+)
+#import "correction.typ": load-correction
 #import "../components/lib.typ": calcola-voto, fmt-punti, fmt-voto
 #import "../theme/lib.typ": palette, spazio, theme
 #import "@preview/cetz:0.5.0": canvas
-
-/// Return the last segment of a POSIX path.
-#let file-name(value) = {
-  let parts = value.trim("/").split("/")
-  if parts.len() == 0 { value } else { parts.last() }
-}
-
-/// Return a path's file stem (name without the final extension).
-#let file-stem(value) = {
-  let name = file-name(value)
-  let parts = name.split(".")
-  if parts.len() <= 1 { name } else { parts.slice(0, -1).join(".") }
-}
 
 /// Remove a single trailing slash, preserving the leading one.
 #let trim-trailing-slash(value) = if value.ends-with("/") {
@@ -88,165 +84,134 @@
 
 #let round-half(value) = calc.round(value * 2) / 2
 
-/// Load an exam and the correction descriptors listed in `students`.
+/// Load one class's corrections and the shared exam manifest.
 ///
-/// `test-folder` and `corrections-folder` are Typst `path`s or root-relative
-/// strings. `test-folder` is the folder containing the exam JSON descriptor
-/// (normally `testo/`); `corrections-folder` is the folder containing the
-/// per-student correction descriptors (normally `correzioni/`).
-///
-/// The exam descriptor is resolved as `<test-folder>/<exam>.json`, where
-/// `<exam>` is the parent folder name when `test-folder` is named `testo/`,
-/// otherwise the test folder name itself. `exam-file` overrides that choice and
-/// is resolved relative to `test-folder`.
-///
-/// Every student in `students` must have a correction descriptor. Use the
-/// `typst-stats` command to skip missing files automatically.
-#let load-stats(test-folder, corrections-folder, students, exam-file: none) = {
-  let folder-string(label, value) = {
-    if type(value) == str and not value.starts-with("/") {
-      panic("stats: " + label + " must be a path or a root-relative string")
-    }
-    trim-trailing-slash(path-string(value))
+/// `corrections-folder` is a Typst `path` or a root-relative string to the
+/// class's `correzioni/` folder. The manifest is read from `../manifest.json`;
+/// the roster is read from `/content/students.json` by default. Every student
+/// in the class must have a correction descriptor. Absent students use a file
+/// containing only `{"absent": true}`.
+#let load-stats(
+  corrections-folder,
+  manifest-file: none,
+  students-json: "/content/students.json",
+) = {
+  if type(corrections-folder) == str and not corrections-folder.starts-with("/") {
+    panic("stats: corrections-folder must be a path or a root-relative string")
   }
 
-  if type(students) != array {
-    panic("stats: students must be an array of strings")
-  }
-  for student in students {
-    if type(student) != str or student.len() == 0 {
-      panic("stats: every student must be a non-empty string")
-    }
-  }
+  let corrections-dir = trim-trailing-slash(path-string(corrections-folder))
+  let manifest-path = manifest-path-for(corrections-dir, manifest-file: manifest-file)
+  let manifest = load-manifest(manifest-path)
+  let class-name = class-from-corrections-dir(corrections-dir)
+  let roster = load-roster(students-json)
+  let prefix = class-name + "/"
+  let roster-keys = roster.keys().filter(key => key.starts-with(prefix)).sorted()
 
-  let test-dir = folder-string("test-folder", test-folder)
-  let corrections-dir = folder-string("corrections-folder", corrections-folder)
-  let selected = students
-
-  if selected.len() == 0 {
-    panic("stats: no correction descriptors selected")
+  if roster-keys.len() == 0 {
+    panic("stats: no students for class \"" + class-name + "\" in " + students-json)
   }
 
-  let corrections = selected.map(student => {
-    let correction-path = resolve-path(corrections-dir, student + ".json")
-    let descriptor = json(correction-path)
-    if type(descriptor) != dictionary {
-      panic("stats: correction descriptor is not an object: " + correction-path)
-    }
-    if not descriptor.keys().contains("set") {
-      panic("stats: correction descriptor has no \"set\": " + correction-path)
-    }
-    (student: student, descriptor: descriptor)
+  let records = roster-keys.map(key => {
+    let slug = key.split("/").last()
+    let correction = load-correction(
+      correction-path-for(corrections-dir, slug),
+      manifest-file: manifest-path,
+      students-json: students-json,
+    )
+    (key: key, slug: slug, correction: correction)
   })
 
-  let sets = corrections
-    .map(correction => correction.descriptor.at("set"))
-    .dedup()
-    .sorted()
+  let absent = records
+    .filter(record => record.correction.absent)
+    .map(record => (slug: record.slug, name: record.correction.student-name))
+  let present = records.filter(record => not record.correction.absent)
 
-  let default-name = if file-name(test-dir) == "testo" {
-    file-name(parent-path(test-dir))
-  } else {
-    file-name(test-dir)
-  }
-  let default-exam = default-name + ".json"
-  let exam-path = if exam-file == none {
-    resolve-path(test-dir, default-exam)
-  } else {
-    if type(exam-file) != str or exam-file.len() == 0 {
-      panic("stats: exam-file must be a non-empty string")
-    }
-    resolve-path(test-dir, exam-file)
+  let test-descriptor = json(manifest.test-json)
+  let sets = test-descriptor.at("sets")
+  if type(sets) != array or sets.len() == 0 {
+    panic("stats: exam descriptor has no sets")
   }
 
-  let exams = sets
-    .map(set-name => (set-name, load-exam(exam-path, set-name)))
-    .to-dict()
+  let set-data = sets.map(set-name => {
+    let exam = load-exam(manifest.test-json, set-name)
+    let exercises = exam.categories
+      .map(category => category.exercises)
+      .flatten()
 
-  let exercises-of(exam) = exam.categories.map(category => category.exercises).flatten()
-  let find-exercise(exam, id) = exercises-of(exam).find(exercise => exercise.id == id)
+    let student-rows = present
+      .filter(record => record.correction.variant == set-name)
+      .map(record => {
+        let correction = record.correction
+        let entries = correction.categories
+          .map(category => category.exercises)
+          .flatten()
+          .map(exercise => (
+            exercise.id,
+            if exercise.delivered { exercise.score } else { none },
+          ))
 
-  let all-exercises = {
-    let best = ()
-    for set-name in sets {
-      let current = exercises-of(exams.at(set-name))
-      if current.len() > best.len() {
-        best = current
-      }
-    }
-    best
-  }
-  let exercise-ids = all-exercises.map(exercise => exercise.id)
-  let exercise-titles = all-exercises.map(exercise => exercise.title)
-
-  let student-rows = corrections
-    .map(correction => {
-      let exam = exams.at(correction.descriptor.at("set"))
-      let entries = exercise-ids.map(id => {
-        let exercise = find-exercise(exam, id)
-        if exercise == none {
-          (id, none)
-        } else {
-          let entry = correction.descriptor.exercises.at(id, default: none)
-          (id, if entry == none { 0 } else { entry.at("score") })
-        }
+        (
+          name: correction.student-name,
+          slug: correction.student,
+          variant: set-name,
+          scores: entries.to-dict(),
+          total: correction.total,
+        )
       })
-      (
-        name: correction.descriptor.at("student-name", default: correction.student),
-        slug: correction.student,
-        variant: correction.descriptor.at("set"),
-        scores: entries.to-dict(),
-        total: entries.map(pair => pair.at(1)).filter(score => score != none).sum(),
-      )
-    })
-    .sorted(key: row => row.name)
+      .sorted(key: row => row.name)
 
-  let exam = exams.at(sets.first())
-  let max-points = exam.at("max-points", default: none)
-  let max-points = if max-points == none { exam.total } else { max-points }
-  let laude-threshold = exam.at("laude-threshold")
+    let max-points = exam.at("max-points", default: none)
+    (
+      variant: set-name,
+      exam: exam,
+      exercises: exercises,
+      exercise-ids: exercises.map(exercise => exercise.id),
+      exercise-titles: exercises.map(exercise => exercise.title),
+      student-rows: student-rows,
+      total-values: student-rows.map(row => row.total),
+      max-points: if max-points == none { exam.total } else { max-points },
+      grade-min: exam.at("grade-min"),
+      grade-max: exam.at("grade-max"),
+      laude-threshold: exam.at("laude-threshold"),
+      lode-count: student-rows.filter(row => row.total > exam.at("laude-threshold")).len(),
+    )
+  })
 
   (
-    test-folder: test-dir,
     corrections-folder: corrections-dir,
-    exam-path: exam-path,
-    corrections: corrections,
+    manifest-path: manifest-path,
+    manifest: manifest,
+    test-json: manifest.test-json,
+    class: class-name,
+    roster-count: roster-keys.len(),
+    absent: absent,
     sets: sets,
-    exams: exams,
-    exam: exam,
-    all-exercises: all-exercises,
-    exercise-ids: exercise-ids,
-    exercise-titles: exercise-titles,
-    student-rows: student-rows,
-    total-values: student-rows.map(row => row.total),
-    max-points: max-points,
-    grade-min: exam.at("grade-min"),
-    grade-max: exam.at("grade-max"),
-    laude-threshold: laude-threshold,
-    lode-count: student-rows.filter(row => row.total > laude-threshold).len(),
+    set-data: set-data,
+    exam: set-data.first().exam,
   )
 }
 
-/// Render a statistics document for one exam.
+/// Render the statistics document for one class.
 ///
-/// `test-folder` points at the `testo/` folder and `corrections-folder` at the
-/// class's `correzioni/` folder. This lets a shared exam have per-class
-/// corrections and statistics.
-#let render-stats(test-folder, corrections-folder, students, exam-file: none) = {
+/// `corrections-folder` points at the class's `correzioni/` folder. The exam
+/// manifest and the roster provide all other metadata; each set gets its own
+/// independent statistics section.
+#let render-stats(
+  corrections-folder,
+  manifest-file: none,
+  students-json: "/content/students.json",
+) = {
   let stats = load-stats(
-    test-folder,
     corrections-folder,
-    students,
-    exam-file: exam-file,
+    manifest-file: manifest-file,
+    students-json: students-json,
   )
-  let exam = stats.exam
-  let title = "Statistiche — " + exam.metadata.title
+  let first-exam = stats.exam
+  let title = "Statistiche — " + first-exam.metadata.title
 
-  set document(title: title, author: exam.metadata.author)
+  set document(title: title, author: first-exam.metadata.author)
   show: doc => theme(doc, footer-text: title)
-
-  let exercises-of(exam) = exam.categories.map(category => category.exercises).flatten()
-  let find-exercise(exam, id) = exercises-of(exam).find(exercise => exercise.id == id)
 
   let grade-for(exam, total) = calcola-voto(
     total,
@@ -273,18 +238,6 @@
         text(size: 7.5pt)[#initials-name(row)]
       }
     }
-  }
-
-  let column-values(id) = stats.student-rows
-    .map(row => row.scores.at(id))
-    .filter(score => score != none)
-
-  let percentages-for(id) = {
-    let rows = stats.student-rows.filter(row => row.scores.at(id) != none)
-    rows.map(row => {
-      let exercise = find-exercise(stats.exams.at(row.variant), id)
-      row.scores.at(id) / exercise.points * 100
-    })
   }
 
   // ----------------------------------------------------------
@@ -364,266 +317,292 @@
     counts
   }
 
-  let point-step = 10
-  let point-bucket-count = int(calc.ceil(stats.max-points / point-step))
-  let point-labels = range(point-bucket-count).map(i => {
-    let start = i * point-step
-    let end = if i == point-bucket-count - 1 {
-      stats.max-points
-    } else {
-      start + point-step - 1
-    }
-    str(start) + "–" + str(end)
-  })
-  let point-bucket-index(points) = calc.min(
-    int(points / point-step),
-    point-bucket-count - 1,
-  )
-  let point-counts = {
-    let counts = range(point-bucket-count).map(_ => 0)
-    for total in stats.total-values {
-      counts.at(point-bucket-index(total)) += 1
-    }
-    counts
-  }
-
-  let grade-step = 0.5
-  let grade-bucket-count = int(
-    calc.round((stats.grade-max - stats.grade-min) / grade-step),
-  ) + 1
-  let grade-labels = range(grade-bucket-count).map(i => fmt-stat(
-    stats.grade-min + i * grade-step,
-    digits: 1,
-  ))
-  let grade-counts = {
-    let counts = range(grade-bucket-count).map(_ => 0)
-    for row in stats.student-rows {
-      let grade = round-half(grade-for(stats.exams.at(row.variant), row.total))
-      let index = int(calc.round((grade - stats.grade-min) / grade-step))
-      if index >= 0 and index < counts.len() {
-        counts.at(index) += 1
-      }
-    }
-    counts
-  }
-
   // ----------------------------------------------------------
-  // Per-set tables
+  // One section per set
   // ----------------------------------------------------------
 
-  let variant-table(variant) = {
-    let set-exam = stats.exams.at(variant)
-    let exercises = exercises-of(set-exam)
-    let ids = exercises.map(exercise => exercise.id)
-    let rows = stats.student-rows.filter(row => row.variant == variant)
+  let render-set(set-stats) = {
+    let exam = set-stats.exam
+    let rows = set-stats.student-rows
+    let exercises = set-stats.exercises
+    let ids = set-stats.exercise-ids
+    let titles = set-stats.exercise-titles
+    let totals = set-stats.total-values
     let values-for(id) = rows
       .map(row => row.scores.at(id))
       .filter(score => score != none)
-    let totals = rows.map(row => row.total)
-    let grades = rows.map(row => grade-for(set-exam, row.total))
+    let percentages-for(id) = {
+      let selected = rows.filter(row => row.scores.at(id) != none)
+      selected.map(row => {
+        let exercise = exercises.find(exercise => exercise.id == id)
+        row.scores.at(id) / exercise.points * 100
+      })
+    }
 
-    figure(
-      table(
-        columns: (3.3cm,) + (1fr,) * ids.len() + (1.1cm, 1.35cm),
-        inset: (x: 2.5pt, y: 3.5pt),
-        stroke: 0.4pt + luma(205),
-        align: center,
-        table.header(
-          align(left)[#text(size: 7.5pt, weight: "bold")[Studente]],
-          ..ids.map(id => text(size: 7.5pt, weight: "bold")[#id]),
-          align(right)[#text(size: 7pt, weight: "bold")[Totale]],
-          align(right)[#text(size: 7pt, weight: "bold")[Voto]],
-        ),
-        // Second line: maximum points for each exercise in this set.
-        ..(
-          table.cell(fill: palette.tint, align: left)[
-            #text(size: 6.5pt, fill: luma(110))[Punti]
-          ],
-          ..exercises.map(exercise => {
-            table.cell(fill: palette.tint)[
-              #text(size: 6.5pt, fill: luma(110))[#fmt-stat(exercise.points)]
-            ]
-          }),
-          table.cell(fill: palette.tint, align: right)[
-            #text(size: 6.5pt, fill: luma(110))[#fmt-stat(set-exam.total)]
-          ],
-          table.cell(fill: palette.tint, align: right)[
-            #text(size: 6.5pt, fill: luma(110))[
-              #fmt-stat(set-exam.at("grade-max"))
-            ]
-          ],
-        ),
-        ..rows.map(row => {
-          (
-            align(left)[#name-cell(row)],
-            ..ids.map(id => {
-              let score = row.scores.at(id)
-              if score == none {
-                text(size: 7.5pt, fill: luma(150))[—]
-              } else {
-                text(size: 7.5pt)[#fmt-stat(score)]
-              }
-            }),
-            align(right)[#text(size: 7.5pt, weight: "bold")[#fmt-stat(row.total)]],
-            align(right)[#text(size: 7pt)[#grade-with-lode(set-exam, row.total)]],
-          )
-        }).flatten(),
-        table.hline(stroke: 0.8pt + luma(120)),
-        ..(
-          table.cell(fill: palette.tint, align: left)[
-            #text(size: 7.5pt, weight: "bold")[Media]
-          ],
-          ..ids.map(id => {
-            table.cell(fill: palette.tint)[
-              #text(size: 7.5pt)[#fmt-stat(mean(values-for(id)), digits: 2)]
-            ]
-          }),
-          table.cell(fill: palette.tint, align: right)[
-            #text(size: 7.5pt, weight: "bold")[#fmt-stat(mean(totals), digits: 2)]
-          ],
-          table.cell(fill: palette.tint, align: right)[
-            #text(size: 7.5pt)[#fmt-stat(mean(grades), digits: 2)]
-          ],
-        ),
-        ..(
-          table.cell(fill: palette.tint, align: left)[
-            #text(size: 7.5pt, weight: "bold")[Deviazione standard]
-          ],
-          ..ids.map(id => {
-            table.cell(fill: palette.tint)[
-              #text(size: 7.5pt)[#fmt-stat(standard-deviation(values-for(id)), digits: 2)]
-            ]
-          }),
-          table.cell(fill: palette.tint, align: right)[
-            #text(size: 7.5pt, weight: "bold")[#fmt-stat(standard-deviation(totals), digits: 2)]
-          ],
-          table.cell(fill: palette.tint, align: right)[
-            #text(size: 7.5pt)[#fmt-stat(standard-deviation(grades), digits: 2)]
-          ],
-        ),
-      ),
-      caption: [
-        Set #upper(variant) — punteggi per studente ed esercizio
-        (#rows.len() #student-word(rows.len())). La seconda riga riporta il
-        punteggio massimo di ciascun esercizio nel set. Media e deviazione standard
-        sono calcolate sui punteggi grezzi; le risposte mancanti valgono 0. La
-        deviazione standard è quella di popolazione. Il voto usa la conversione del
-        descrittore della prova: #fmt-stat(stats.grade-min)–#fmt-stat(stats.grade-max),
-        con base #fmt-stat(stats.laude-threshold) punti. La lode scatta solo
-        oltre la soglia.
-      ],
+    let point-step = 10
+    let point-bucket-count = int(calc.ceil(set-stats.max-points / point-step))
+    let point-labels = range(point-bucket-count).map(i => {
+      let start = i * point-step
+      let end = if i == point-bucket-count - 1 {
+        set-stats.max-points
+      } else {
+        start + point-step - 1
+      }
+      str(start) + "–" + str(end)
+    })
+    let point-bucket-index(points) = calc.min(
+      int(points / point-step),
+      point-bucket-count - 1,
     )
+    let point-counts = {
+      let counts = range(point-bucket-count).map(_ => 0)
+      for total in totals {
+        counts.at(point-bucket-index(total)) += 1
+      }
+      counts
+    }
+
+    let grade-step = 0.5
+    let grade-bucket-count = int(
+      calc.round((set-stats.grade-max - set-stats.grade-min) / grade-step),
+    ) + 1
+    let grade-labels = range(grade-bucket-count).map(i => fmt-stat(
+      set-stats.grade-min + i * grade-step,
+      digits: 1,
+    ))
+    let grade-counts = {
+      let counts = range(grade-bucket-count).map(_ => 0)
+      for row in rows {
+        let grade = round-half(grade-for(exam, row.total))
+        let index = int(calc.round((grade - set-stats.grade-min) / grade-step))
+        if index >= 0 and index < counts.len() {
+          counts.at(index) += 1
+        }
+      }
+      counts
+    }
+
+    if rows.len() == 0 {
+      [
+        = Set #upper(set-stats.variant)
+
+        _Nessuno studente ha svolto questo set._
+      ]
+    } else {
+      [
+        = Set #upper(set-stats.variant)
+
+        #text(size: 8.5pt, fill: luma(105))[
+          #rows.len() #student-word(rows.len()) ·
+          Punti max #fmt-stat(set-stats.max-points) ·
+          Voti #fmt-stat(set-stats.grade-min)–#fmt-stat(set-stats.grade-max) ·
+          Lode oltre #fmt-stat(set-stats.laude-threshold) ·
+          Media #fmt-stat(mean(totals), digits: 1) ·
+          Dev. std. #fmt-stat(standard-deviation(totals), digits: 1)
+        ]
+
+        == Punteggi per studente ed esercizio
+
+        #figure(
+          table(
+            columns: (3.3cm,) + (1fr,) * ids.len() + (1.1cm, 1.35cm),
+            inset: (x: 2.5pt, y: 3.5pt),
+            stroke: 0.4pt + luma(205),
+            align: center,
+            table.header(
+              align(left)[#text(size: 7.5pt, weight: "bold")[Studente]],
+              ..ids.map(id => text(size: 7.5pt, weight: "bold")[#id]),
+              align(right)[#text(size: 7pt, weight: "bold")[Totale]],
+              align(right)[#text(size: 7pt, weight: "bold")[Voto]],
+            ),
+            // Second line: maximum points for each exercise in this set.
+            ..(
+              table.cell(fill: palette.tint, align: left)[
+                #text(size: 6.5pt, fill: luma(110))[Punti]
+              ],
+              ..exercises.map(exercise => {
+                table.cell(fill: palette.tint)[
+                  #text(size: 6.5pt, fill: luma(110))[#fmt-stat(exercise.points)]
+                ]
+              }),
+              table.cell(fill: palette.tint, align: right)[
+                #text(size: 6.5pt, fill: luma(110))[#fmt-stat(set-stats.max-points)]
+              ],
+              table.cell(fill: palette.tint, align: right)[
+                #text(size: 6.5pt, fill: luma(110))[
+                  #fmt-stat(set-stats.grade-max)
+                ]
+              ],
+            ),
+            ..rows.map(row => {
+              (
+                align(left)[#name-cell(row)],
+                ..ids.map(id => {
+                  let score = row.scores.at(id)
+                  if score == none {
+                    text(size: 7.5pt, fill: luma(150))[—]
+                  } else {
+                    text(size: 7.5pt)[#fmt-stat(score)]
+                  }
+                }),
+                align(right)[#text(size: 7.5pt, weight: "bold")[#fmt-stat(row.total)]],
+                align(right)[#text(size: 7pt)[#grade-with-lode(exam, row.total)]],
+              )
+            }).flatten(),
+            table.hline(stroke: 0.8pt + luma(120)),
+            ..(
+              table.cell(fill: palette.tint, align: left)[
+                #text(size: 7.5pt, weight: "bold")[Media]
+              ],
+              ..ids.map(id => {
+                table.cell(fill: palette.tint)[
+                  #text(size: 7.5pt)[#fmt-stat(mean(values-for(id)), digits: 2)]
+                ]
+              }),
+              table.cell(fill: palette.tint, align: right)[
+                #text(size: 7.5pt, weight: "bold")[#fmt-stat(mean(totals), digits: 2)]
+              ],
+              table.cell(fill: palette.tint, align: right)[
+                #text(size: 7.5pt)[#fmt-stat(mean(rows.map(row => grade-for(exam, row.total))), digits: 2)]
+              ],
+            ),
+            ..(
+              table.cell(fill: palette.tint, align: left)[
+                #text(size: 7.5pt, weight: "bold")[Deviazione standard]
+              ],
+              ..ids.map(id => {
+                table.cell(fill: palette.tint)[
+                  #text(size: 7.5pt)[#fmt-stat(standard-deviation(values-for(id)), digits: 2)]
+                ]
+              }),
+              table.cell(fill: palette.tint, align: right)[
+                #text(size: 7.5pt, weight: "bold")[#fmt-stat(standard-deviation(totals), digits: 2)]
+              ],
+              table.cell(fill: palette.tint, align: right)[
+                #text(size: 7.5pt)[#fmt-stat(standard-deviation(rows.map(row => grade-for(exam, row.total))), digits: 2)]
+              ],
+            ),
+          ),
+          caption: [
+            Set #upper(set-stats.variant) — punteggi per studente ed esercizio
+            (#rows.len() #student-word(rows.len())). La seconda riga riporta il
+            punteggio massimo di ciascun esercizio nel set. Media e deviazione
+            standard sono calcolate sui punteggi grezzi; le risposte mancanti
+            valgono 0. La deviazione standard è quella di popolazione. Il voto
+            usa la conversione del descrittore della prova:
+            #fmt-stat(set-stats.grade-min)–#fmt-stat(set-stats.grade-max), con
+            base #fmt-stat(set-stats.laude-threshold) punti. La lode scatta solo
+            oltre la soglia.
+          ],
+        )
+
+        #pagebreak()
+
+        == Distribuzione dei punteggi per esercizio
+
+        I grafici mostrano la distribuzione del punteggio ottenuto in ciascun
+        esercizio, espresso in percentuale del punteggio massimo dell'esercizio
+        per lo studente.
+
+        #grid(
+          columns: (1fr, 1fr),
+          column-gutter: spazio.xl,
+          row-gutter: spazio.xxl,
+          ..ids.enumerate().map(pair => {
+            let id = pair.at(1)
+            let values = percentages-for(id)
+            let counts = band-counts(values)
+            block(breakable: false, width: 100%)[
+              #align(center)[
+                #text(weight: 700)[#id — #titles.at(pair.at(0))]
+                #linebreak()
+                #text(size: 8pt, fill: luma(105))[
+                  #values.len() #student-word(values.len()) · media #fmt-stat(mean(values), digits: 1)%
+                ]
+                #bar-chart(counts, bands, value-format: value => str(value))
+              ]
+            ]
+          }),
+        )
+
+        == Distribuzione del punteggio totale
+
+        === Punteggi (0–#set-stats.max-points)
+
+        #figure(
+          align(center)[
+            #bar-chart(
+              point-counts,
+              point-labels,
+              value-format: value => str(value),
+            )
+          ],
+          caption: [
+            Distribuzione del punteggio totale del set #upper(set-stats.variant)
+            in bucket da #point-step punti (0–#set-stats.max-points).
+            Media: #fmt-stat(mean(totals), digits: 1) /
+            #set-stats.max-points (#fmt-stat(mean(totals) / set-stats.max-points * 100, digits: 1)%);
+            deviazione standard: #fmt-stat(standard-deviation(totals), digits: 1).
+          ],
+        )
+
+        === Voti (#fmt-stat(set-stats.grade-min)–#fmt-stat(set-stats.grade-max), passo 0,5)
+
+        #figure(
+          align(center)[
+            #bar-chart(
+              grade-counts,
+              grade-labels,
+              value-format: value => str(value),
+              color: palette.accent,
+            )
+          ],
+          caption: [
+            Distribuzione dei voti del set #upper(set-stats.variant),
+            arrotondati al mezzo punto più vicino. Il voto è compresso fra
+            #fmt-stat(set-stats.grade-min) e #fmt-stat(set-stats.grade-max).
+            #if set-stats.lode-count > 0 [
+              #set-stats.lode-count #student-word(set-stats.lode-count) hanno
+              raggiunto la lode.
+            ]
+          ],
+        )
+
+        == Percentuale media per esercizio
+
+        #figure(
+          align(center)[
+            #bar-chart(
+              ids.map(id => mean(percentages-for(id))),
+              ids,
+              max-value: 100,
+              value-format: value => fmt-stat(value, digits: 0) + "%",
+            )
+          ],
+          caption: [
+            Media della percentuale ottenuta in ciascun esercizio del set
+            #upper(set-stats.variant). Un valore basso indica un esercizio con
+            prestazioni medie più deboli.
+          ],
+        )
+      ]
+    }
   }
 
-  // ----------------------------------------------------------
-  // Document
-  // ----------------------------------------------------------
-
   [
+    Statistiche calcolate sulle #stats.roster-count #student-word(stats.roster-count)
+    della classe #upper(stats.class). Ogni set ha una sezione separata, con
+    statistiche calcolate solo sugli studenti di quel set.
 
-  = Statistiche generali
-
-  Statistiche calcolate sulle #stats.corrections.len() correzioni presenti in
-  `correzioni/`. Le tabelle sono separate per set; i grafici per esercizio
-  normalizzano invece il punteggio sul massimo dell'esercizio, così i set
-  restano confrontabili.
-
-  == Punteggi per studente ed esercizio
-
-  #for variant in stats.sets [
-    #block(above: spazio.xl, below: spazio.sm)[
-      #text(size: 12pt, weight: 700)[Set #upper(variant)]
-      #text(size: 9pt, fill: luma(110))[
-        \ — #stats.student-rows.filter(row => row.variant == variant).len() #student-word(stats.student-rows.filter(row => row.variant == variant).len())
+    #if stats.absent.len() > 0 [
+      #text(size: 8.5pt, fill: luma(105))[
+        Assenti: #stats.absent.map(student => student.name).join(", ").
       ]
     ]
-    #variant-table(variant)
-  ]
 
-  #pagebreak()
-
-  == Distribuzione dei punteggi per esercizio
-
-  I grafici mostrano la distribuzione del punteggio ottenuto in ciascun
-  esercizio, espresso in percentuale del punteggio massimo dell'esercizio per
-  lo studente. In questo modo studenti di set diversi restano confrontabili.
-
-  #grid(
-    columns: (1fr, 1fr),
-    column-gutter: spazio.xl,
-    row-gutter: spazio.xxl,
-    ..stats.exercise-ids.enumerate().map(pair => {
-      let id = pair.at(1)
-      let values = percentages-for(id)
-      let counts = band-counts(values)
-      block(breakable: false, width: 100%)[
-        #align(center)[
-          #text(weight: 700)[#id — #stats.exercise-titles.at(pair.at(0))]
-          #linebreak()
-          #text(size: 8pt, fill: luma(105))[
-            #values.len() #student-word(values.len()) · media #fmt-stat(mean(values), digits: 1)%
-          ]
-          #bar-chart(counts, bands, value-format: value => str(value))
-        ]
-      ]
-    }),
-  )
-
-  == Distribuzione del punteggio totale
-
-  === Punteggi (0–#stats.max-points)
-
-  #figure(
-    align(center)[
-      #bar-chart(
-        point-counts,
-        point-labels,
-        value-format: value => str(value),
-      )
-    ],
-    caption: [
-      Distribuzione del punteggio totale in bucket da #point-step punti
-      (0–#stats.max-points). Media: #fmt-stat(mean(stats.total-values), digits: 1) /
-      #stats.max-points (#fmt-stat(mean(stats.total-values) / stats.max-points * 100, digits: 1)%);
-      deviazione standard: #fmt-stat(standard-deviation(stats.total-values), digits: 1).
-    ],
-  )
-
-  === Voti (#fmt-stat(stats.grade-min)–#fmt-stat(stats.grade-max), passo 0,5)
-
-  #figure(
-    align(center)[
-      #bar-chart(
-        grade-counts,
-        grade-labels,
-        value-format: value => str(value),
-        color: palette.accent,
-      )
-    ],
-    caption: [
-      Distribuzione dei voti, arrotondati al mezzo punto più vicino. Il voto è
-      compresso fra #fmt-stat(stats.grade-min) e #fmt-stat(stats.grade-max).
-      #if stats.lode-count > 0 [
-        #stats.lode-count #student-word(stats.lode-count) hanno raggiunto la lode.
-      ]
-    ],
-  )
-
-  == Percentuale media per esercizio
-
-  #figure(
-    align(center)[
-      #bar-chart(
-        stats.exercise-ids.map(id => mean(percentages-for(id))),
-        stats.exercise-ids,
-        max-value: 100,
-        value-format: value => fmt-stat(value, digits: 0) + "%",
-      )
-    ],
-    caption: [
-      Media della percentuale ottenuta in ciascun esercizio. Un valore basso
-      indica un esercizio con prestazioni medie più deboli.
-    ],
-  )
+    #for (index, set-stats) in stats.set-data.enumerate() {
+      if index > 0 { pagebreak() }
+      render-set(set-stats)
+    }
   ]
 }

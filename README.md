@@ -28,7 +28,7 @@ cover to the default delivery-instructions callout.
 - `quesito`, `quesito2` — theory questions, exercises and snippets; `quesito2` also shows the answer file name
 - `load-exam`, `render-exam` — load and render one set from a JSON exam descriptor
 - `load-correction`, `render-correction` — load and render a JSON correction descriptor
-- `load-stats`, `render-stats` — load a test folder and a corrections folder and render class statistics
+- `load-stats`, `render-stats` — load a corrections folder and render per-set class statistics
 - `istruzioni-consegna`, `risposta`, `risposta-nel-file`, `commento`, `nessuna-risposta`
 - `griglia-punteggi`, `griglia-punteggi2`, `griglia-correzione`, `griglia-correzioni2`
 - `cover`, `nota`, `template`, `esempi`
@@ -275,24 +275,37 @@ The exam rhythm comes from `spazio`; the programme rhythm from
 inside their own blocks, so documents should not insert manual `#v(...)`
 between questions, answers or summaries.
 
-## JSON-driven corrections
+## Exam manifests
 
-A correction descriptor mirrors the exam descriptor. Paths are resolved
-relative to the correction JSON, and exercise ids must match the selected set.
+Every class exam folder contains a `manifest.json` next to `testo/` and
+`correzioni/`. It is the single source of truth for the exam path and shared
+correction defaults:
 
 ```json
 {
-  "$schema": "./correction.schema.json",
-  "answer-folder": "../risposte/battocletti-alessandro",
-  "test-json": "../testo/prova-1.json",
+  "$schema": "../../../misc/manifest.schema.json",
+  "version": 1,
+  "test-json": "../../shared/esercitazione-1/testo/esercitazione-1.json",
+  "answer-folder": "risposte",
+  "date": "20 ottobre 2026",
+  "title": "Correzione — Simulazione 1"
+}
+```
+
+`test-json` and `answer-folder` are resolved relative to the manifest. The
+answer folder is the class-wide folder; the student slug is appended
+automatically. `title`, `subtitle` and `import-answers` are optional defaults.
+
+## JSON-driven corrections
+
+A correction descriptor now contains only student-specific data. Its class and
+display name are derived from the file name, the folder path and
+`content/students.json`. `test-json`, `answer-folder`, `date` and the other
+defaults come from the class manifest.
+
+```json
+{
   "set": "a",
-
-  "student-name": "Alessandro Battocletti",
-  "class": "2C",
-  "date": "29 ottobre 2026",
-
-  "import-answers": true,
-
   "exercises": {
     "E1": {
       "answer-file": "esercizio1.py",
@@ -304,23 +317,28 @@ relative to the correction JSON, and exercise ids must match the selected set.
 }
 ```
 
+An absent student needs only:
+
+```json
+{ "absent": true }
+```
+
+- Every student in the class roster must have a correction file. This lets
+  stats discover the complete class without a manually maintained list.
 - Every exercise in the selected set must be present, either as an object or
   `null`. `null` renders the “Nessuna risposta consegnata.” placeholder with a
   score of 0.
 - Non-null entries require `answer-file` and `score`.
-- `import-answers` defaults to `true`. A per-exercise `import-answer` (or
-  `import-answers`) overrides it. When import is disabled, the correction shows
-  a `Risposta nel file …` placeholder instead of the file contents.
+- `date`, `title`, `subtitle` and `import-answers` can override the manifest
+  defaults per correction.
 - `comment` is interpreted as Typst markup and rendered with `commento`.
-- `student-name`, `class`, `date`, `title` and `subtitle` are optional; missing
-  values fall back to the correction file name and the exam metadata.
 
 An entry point only needs the descriptor path:
 
 ```typ
 #import "/typst-components/src/correction.typ": render-correction
 
-#render-correction(path("battocletti-alessandro.json"))
+#render-correction("/content/raw/private/admin/seconde/2c/prova-1/correzioni/battocletti-alessandro.json")
 ```
 
 `render-correction` renders the header, all answers and comments, and the final
@@ -328,45 +346,32 @@ score summary with the answer-file column.
 
 ## Statistics
 
-`render-stats` reads the `testo/` folder and the class's `correzioni/` folder
-separately and renders a set of class statistics: one score table per set, a
-distribution chart for every exercise, the total-score and grade distributions,
-and the mean percentage per exercise. Keeping the two folders separate lets a
-shared exam have per-class corrections and statistics.
+`render-stats` reads one class's `correzioni/` folder. The sibling
+`manifest.json` supplies the exam path and the roster supplies the complete
+student list. Each set gets its own independent statistics section.
 
 ```typ
 #import "/typst-components/src/lib.typ": render-stats
 
-#render-stats(
-  path("content/raw/private/admin/seconde/2c/prova-1/testo"),
-  path("content/raw/private/admin/seconde/2c/prova-1/correzioni"),
-  (
-    "battocletti-alessandro",
-    "bonetti-alessandra",
-    "dagostin-davide",
-  ),
-)
+#render-stats(path("content/raw/private/admin/seconde/2c/prova-1/correzioni"))
 ```
 
-The first argument is the `testo/` folder, the second is the `correzioni/`
-folder, and the third is the list of correction stems to include. Every listed
-student must have a correction descriptor. The exam descriptor defaults to
-`<exam>.json` inside `testo/`, where `<exam>` is the parent folder name; use
-`exam-file:` to override it.
+For a class exam folder, the usual entry point is simply:
 
-The command-line wrapper checks the paths and reports missing corrections:
+```typ
+#render-stats(path("../correzioni"))
+```
+
+The command-line wrapper only needs the corrections folder:
 
 ```sh
 typst-components/bin/typst-stats \
-  materiale/content/raw/private/admin/seconde/2c/prova-1/testo \
-  materiale/content/raw/private/admin/seconde/2c/prova-1/correzioni \
-  "battocletti-alessandro,bonetti-alessandra,dagostin-davide"
+  materiale/content/raw/private/admin/seconde/2c/prova-1/correzioni
 ```
 
-The third argument may also be a file with one student stem per line. The
-output defaults to the class exam's `misc/stats.pdf` (the parent of the
-`correzioni/` folder); use `--out` to override it and `--root` if the Typst
-project root cannot be found automatically.
+The output defaults to the class exam's `misc/stats.pdf`; use `--out` to
+override it and `--root` if the Typst project root cannot be found
+automatically.
 
 Charts use [`@preview/cetz:0.5.0`](https://typst.app/universe/package/cetz).
 
