@@ -111,17 +111,11 @@
       ]
 
     - Dentro a questa cartella, va creato *un file per ciascun esercizio*. Il nome del file è quello indicato
-      nell'intestazione dell'esercizio, trasformato in modo che sia *tutto minuscolo e senza
-      spazi*: l'estensione deve essere `.py` per gli esercizi di programmazione e `.txt` per le
-      risposte alle domande e agli snippet.
+      sotto l'intestazione dell'esercizio, oppure nella tabella riassuntiva.
 
 
       #box(fill: luma(255), inset: 9pt, radius: 3pt)[
-        #testata("Esercizio", 1, "Esempio esercizio")
-        #v(0.5em)
-        #text(size: 8.5pt, fill: luma(120), style: "italic")[
-          Ad esempio, per questo esercizio va creato un file `esercizio1.py`
-        ]
+        #testata("Esercizio", 1, "Esempio esercizio", file: "file.txt")
       ]
 
     #if righe.len() > 0 [

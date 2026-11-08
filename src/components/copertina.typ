@@ -1,6 +1,6 @@
 // Full cover page for generated exams.
 
-#import "../theme/palette.typ": palette, font-mono
+#import "../theme/palette.typ": font-mono, palette
 #import "../theme/spacing.typ": spazio
 #import "../theme/labels.typ": etichetta
 

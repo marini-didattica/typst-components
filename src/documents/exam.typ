@@ -24,8 +24,7 @@
     raw.slice(6, -2)
   } else {
     panic(
-      "exam: il percorso del descrittore deve essere una stringa o un `path`: "
-        + repr(value),
+      "exam: il percorso del descrittore deve essere una stringa o un `path`: " + repr(value),
     )
   }
 }
@@ -567,13 +566,15 @@
     decoration: auto,
     descriptors: descriptors,
     student-data: none,
-  )
-  if exam.preamble-path != none {
-    include exam.preamble-path
-  }
+    body: {
+      istruzioni-consegna(categories: exam.categories)
 
-  istruzioni-consegna(categories: exam.categories)
-  griglia-voti2(exam.categories, titolo: "Riepilogo dei punteggi")
+      if exam.preamble-path != none {
+        include exam.preamble-path
+      }
+      griglia-voti2(exam.categories, titolo: "Riepilogo dei punteggi")
+    },
+  )
   pagebreak()
 
   for pair in exam.categories.enumerate() {
