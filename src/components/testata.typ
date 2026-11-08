@@ -61,9 +61,10 @@
   ]
 
   if file != none {
-    v(spazio.sm)
-    text(size: 8.5pt, fill: luma(120), style: "italic")[
-      Consegna questo esercizio nel file #raw(file)
+    block(above: spazio.sm, below: 0pt)[
+      #text(size: 8.5pt, fill: luma(120), style: "italic")[
+        Consegna questo esercizio nel file #raw(file)
+      ]
     ]
   }
 }
