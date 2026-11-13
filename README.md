@@ -277,31 +277,37 @@ between questions, answers or summaries.
 
 ## Exam manifests
 
-Every class exam folder contains a `manifest.json` next to `testo/` and
-`correzioni/`. It is the single source of truth for the exam path and shared
+Every class exam folder contains a `manifest.json` next to `correzioni/` and
+`risposte/`. It is the single source of truth for the test and the shared
 correction defaults:
 
 ```json
 {
   "$schema": "../../../misc/manifest.schema.json",
   "version": 1,
-  "test-json": "../../shared/esercitazione-1/testo/esercitazione-1.json",
-  "answer-folder": "risposte",
+  "test": "1-prova-1a",
   "date": "20 ottobre 2026",
+  "publish": true,
   "title": "Correzione — Simulazione 1"
 }
 ```
 
-`test-json` and `answer-folder` are resolved relative to the manifest. The
-answer folder is the class-wide folder; the student slug is appended
-automatically. `title`, `subtitle` and `import-answers` are optional defaults.
+`test` is a name under the tests root. A conventional test lives in
+`<tests-root>/<name>/testo/<name>.json`; the default tests root is
+`../../../tests`, relative to `admin/corrections/<class>/<cohort>/`, and can be
+overridden with the optional `tests-root` field. `answer-folder` defaults to
+`risposte` and is resolved relative to the manifest; the student slug is
+appended automatically. `publish` defaults to `false`; when the site build sees
+`"publish": true`, it generates `correzione.pdf` in every present student's
+private folder. `title`, `subtitle` and `import-answers` are optional defaults.
+The legacy `test-json` field still accepts an explicit path.
 
 ## JSON-driven corrections
 
 A correction descriptor now contains only student-specific data. Its class and
 display name are derived from the file name, the folder path and
-`content/students.json`. `test-json`, `answer-folder`, `date` and the other
-defaults come from the class manifest.
+`content/students.json`. `test`, `answer-folder`, `date` and the other defaults
+come from the class manifest.
 
 ```json
 {
@@ -316,6 +322,22 @@ defaults come from the class manifest.
   }
 }
 ```
+
+A student who sat another section's test can override the manifest default:
+
+```json
+{
+  "test": "1-prova-1b",
+  "set": "default",
+  "exercises": {
+    "D1": { "answer-file": "domanda1.txt", "score": 7, "comment": "Corretta." }
+  }
+}
+```
+
+`set`, exercise IDs, maximum points, lode threshold and grade conversion then
+come from the overridden test. Statistics group students by effective test, so
+answers from different tests are never compared with each other.
 
 An absent student needs only:
 
@@ -338,7 +360,7 @@ An entry point only needs the descriptor path:
 ```typ
 #import "/typst-components/src/correction.typ": render-correction
 
-#render-correction("/content/raw/private/admin/seconde/2c/prova-1/correzioni/battocletti-alessandro.json")
+#render-correction("/content/raw/private/admin/corrections/2c/prova-1/correzioni/battocletti-alessandro.json")
 ```
 
 `render-correction` renders the header, all answers and comments, and the final
@@ -347,16 +369,18 @@ score summary with the answer-file column.
 ## Statistics
 
 `render-stats` reads one class's `correzioni/` folder. The sibling
-`manifest.json` supplies the exam path and the roster supplies the complete
-student list. Each set gets its own independent statistics section.
+`manifest.json` supplies the test and the roster supplies the complete student
+list. Each set gets its own independent statistics section; students who sat a
+different test through a correction's `test` override are grouped under that
+test instead.
 
 ```typ
 #import "/typst-components/src/lib.typ": render-stats
 
-#render-stats(path("content/raw/private/admin/seconde/2c/prova-1/correzioni"))
+#render-stats(path("content/raw/private/admin/corrections/2c/prova-1/correzioni"))
 ```
 
-For a class exam folder, the usual entry point is simply:
+For a correction cohort folder, the usual entry point is simply:
 
 ```typ
 #render-stats(path("../correzioni"))
@@ -366,7 +390,7 @@ The command-line wrapper only needs the corrections folder:
 
 ```sh
 typst-components/bin/typst-stats \
-  materiale/content/raw/private/admin/seconde/2c/prova-1/correzioni
+  materiale/content/raw/private/admin/corrections/2c/prova-1/correzioni
 ```
 
 The output defaults to the class exam's `misc/stats.pdf`; use `--out` to

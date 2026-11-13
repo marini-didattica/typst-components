@@ -5,6 +5,7 @@
   class-from-corrections-dir,
   correction-path-for,
   file-name,
+  file-stem,
   load-manifest,
   load-roster,
   manifest-path-for,
@@ -127,62 +128,113 @@
     .map(record => (slug: record.slug, name: record.correction.student-name))
   let present = records.filter(record => not record.correction.absent)
 
-  let test-descriptor = json(manifest.test-json)
-  let sets = test-descriptor.at("sets")
-  if type(sets) != array or sets.len() == 0 {
+  let unique(values) = {
+    let seen = ()
+    for value in values {
+      if not (value in seen) {
+        seen.push(value)
+      }
+    }
+    seen
+  }
+
+  let test-name-of(test-path) = {
+    let record = present.find(record => record.correction.test-path == test-path)
+    if record == none {
+      file-stem(test-path)
+    } else {
+      record.correction.test
+    }
+  }
+
+  // The cohort's default test comes first; any test a student sat as a
+  // substitute follows, sorted by name. A class whose students all sat the
+  // default test therefore keeps exactly the previous behaviour.
+  let default-test-path = manifest.test-path
+  let substitute-tests = unique(
+    present.map(record => record.correction.test-path),
+  ).filter(test-path => test-path != default-test-path)
+  let test-paths = (default-test-path,) + substitute-tests.sorted(
+    key: test-path => test-name-of(test-path),
+  )
+
+  let default-sets = json(default-test-path).at("sets")
+  if type(default-sets) != array or default-sets.len() == 0 {
     panic("stats: exam descriptor has no sets")
   }
 
-  let set-data = sets.map(set-name => {
-    let exam = load-exam(manifest.test-json, set-name)
-    let exercises = exam.categories
-      .map(category => category.exercises)
-      .flatten()
+  let set-data = ()
+  for test-path in test-paths {
+    let test-descriptor = json(test-path)
+    let test-sets = test-descriptor.at("sets")
+    if type(test-sets) != array or test-sets.len() == 0 {
+      panic("stats: exam descriptor has no sets: " + test-path)
+    }
 
-    let student-rows = present
-      .filter(record => record.correction.variant == set-name)
-      .map(record => {
-        let correction = record.correction
-        let entries = correction.categories
-          .map(category => category.exercises)
-          .flatten()
-          .map(exercise => (
-            exercise.id,
-            if exercise.delivered { exercise.score } else { none },
-          ))
+    for set-name in test-sets {
+      let exam = load-exam(test-path, set-name)
+      let exercises = exam.categories
+        .map(category => category.exercises)
+        .flatten()
 
-        (
-          name: correction.student-name,
-          slug: correction.student,
-          variant: set-name,
-          scores: entries.to-dict(),
-          total: correction.total,
-        )
-      })
-      .sorted(key: row => row.name)
+      let student-rows = present
+        .filter(record => (
+          record.correction.test-path == test-path
+            and record.correction.variant == set-name
+        ))
+        .map(record => {
+          let correction = record.correction
+          let entries = correction.categories
+            .map(category => category.exercises)
+            .flatten()
+            .map(exercise => (
+              exercise.id,
+              if exercise.delivered { exercise.score } else { none },
+            ))
 
-    let max-points = exam.at("max-points", default: none)
-    (
-      variant: set-name,
-      exam: exam,
-      exercises: exercises,
-      exercise-ids: exercises.map(exercise => exercise.id),
-      exercise-titles: exercises.map(exercise => exercise.title),
-      student-rows: student-rows,
-      total-values: student-rows.map(row => row.total),
-      max-points: if max-points == none { exam.total } else { max-points },
-      grade-min: exam.at("grade-min"),
-      grade-max: exam.at("grade-max"),
-      laude-threshold: exam.at("laude-threshold"),
-      lode-count: student-rows.filter(row => row.total > exam.at("laude-threshold")).len(),
-    )
-  })
+          (
+            name: correction.student-name,
+            slug: correction.student,
+            variant: set-name,
+            scores: entries.to-dict(),
+            total: correction.total,
+          )
+        })
+        .sorted(key: row => row.name)
+
+      let max-points = exam.at("max-points", default: none)
+      set-data.push((
+        variant: set-name,
+        test: test-name-of(test-path),
+        test-path: test-path,
+        exam: exam,
+        exercises: exercises,
+        exercise-ids: exercises.map(exercise => exercise.id),
+        exercise-titles: exercises.map(exercise => exercise.title),
+        student-rows: student-rows,
+        total-values: student-rows.map(row => row.total),
+        max-points: if max-points == none { exam.total } else { max-points },
+        grade-min: exam.at("grade-min"),
+        grade-max: exam.at("grade-max"),
+        laude-threshold: exam.at("laude-threshold"),
+        lode-count: student-rows.filter(row => row.total > exam.at("laude-threshold")).len(),
+      ))
+    }
+  }
+
+  let sets = default-sets
+  let tests = test-paths.map(test-path => (
+    name: test-name-of(test-path),
+    path: test-path,
+  ))
 
   (
     corrections-folder: corrections-dir,
     manifest-path: manifest-path,
     manifest: manifest,
-    test-json: manifest.test-json,
+    test: manifest.test,
+    test-json: manifest.test-path,
+    tests: tests,
     class: class-name,
     roster-count: roster-keys.len(),
     absent: absent,
@@ -323,6 +375,11 @@
 
   let render-set(set-stats) = {
     let exam = set-stats.exam
+    let set-title = if stats.tests.len() > 1 {
+      set-stats.test + " · Set " + upper(set-stats.variant)
+    } else {
+      "Set " + upper(set-stats.variant)
+    }
     let rows = set-stats.student-rows
     let exercises = set-stats.exercises
     let ids = set-stats.exercise-ids
@@ -384,13 +441,13 @@
 
     if rows.len() == 0 {
       [
-        = Set #upper(set-stats.variant)
+        = #set-title
 
         _Nessuno studente ha svolto questo set._
       ]
     } else {
       [
-        = Set #upper(set-stats.variant)
+        = #set-title
 
         #text(size: 8.5pt, fill: luma(105))[
           #rows.len() #student-word(rows.len()) ·
@@ -591,8 +648,14 @@
 
   [
     Statistiche calcolate sulle #stats.roster-count #student-word(stats.roster-count)
-    della classe #upper(stats.class). Ogni set ha una sezione separata, con
-    statistiche calcolate solo sugli studenti di quel set.
+    della classe #upper(stats.class).
+    #if stats.tests.len() > 1 [
+      Ogni prova ha una sezione separata, e ogni set ha statistiche calcolate
+      solo sugli studenti che hanno svolto quella prova in quel set.
+    ] else [
+      Ogni set ha una sezione separata, con statistiche calcolate solo sugli
+      studenti di quel set.
+    ]
 
     #if stats.absent.len() > 0 [
       #text(size: 8.5pt, fill: luma(105))[

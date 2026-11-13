@@ -8,6 +8,7 @@
   load-manifest,
   load-roster,
   manifest-path-for,
+  resolve-test,
   roster-entry,
   student-name-from-entry,
 )
@@ -108,6 +109,7 @@
 
   let allowed-keys = (
     "absent",
+    "test",
     "set",
     "import-answers",
     "date",
@@ -141,7 +143,9 @@
   }
 
   let set-name = required-string(descriptor, "set", "descriptor")
-  let exam = load-exam(manifest.test-json, set-name)
+  let test-name = optional-string(descriptor, "test", manifest.test, "descriptor")
+  let test-path = resolve-test(manifest, test-name)
+  let exam = load-exam(test-path, set-name)
   let answer-folder = resolve-path(manifest.answer-folder, slug)
   let import-answers = optional-bool(
     descriptor,
@@ -334,6 +338,8 @@
   (
     absent: false,
     variant: set-name,
+    test: test-name,
+    test-path: test-path,
     student: slug,
     student-name: student-name,
     class: student-class,

@@ -43,7 +43,7 @@
 #let load-roster(path) = load-json-object(path, "roster")
 
 /// Derive the class folder name from a corrections folder:
-/// `<track>/<class>/<exam>/correzioni` -> `<class>`.
+/// `corrections/<class>/<cohort>/correzioni` -> `<class>`.
 #let class-from-corrections-dir(corrections-dir) = {
   let exam-dir = parent-path(corrections-dir)
   let class-dir = parent-path(exam-dir)
@@ -63,6 +63,24 @@
   }
 }
 
+/// Default folder holding the conventional `<name>/testo/<name>.json` tests,
+/// relative to the manifest in `admin/corrections/<class>/<cohort>/`.
+#let default-tests-root = "../../../tests"
+
+/// Resolve a test name to its conventional descriptor path.
+#let test-path-for(tests-root, name) = {
+  if type(name) != str or name.len() == 0 {
+    panic("manifest: test name must be a non-empty string")
+  }
+  if name.contains("/") or name.contains("\\") or name.contains("..") {
+    panic("manifest: invalid test name: " + name)
+  }
+  resolve-path(tests-root, name + "/testo/" + name + ".json")
+}
+
+/// Resolve a test name against the tests root recorded in a loaded manifest.
+#let resolve-test(manifest, name) = test-path-for(manifest.tests-root, name)
+
 /// Load and validate an exam manifest.
 #let load-manifest(manifest-path) = {
   let descriptor = load-json-object(manifest-path, "manifest")
@@ -72,9 +90,12 @@
   let allowed-keys = (
     "$schema",
     "version",
+    "test",
     "test-json",
+    "tests-root",
     "answer-folder",
     "date",
+    "publish",
     "title",
     "subtitle",
     "import-answers",
@@ -117,15 +138,36 @@
   }
 
   let base-dir = parent-path(path-string(manifest-path))
+  let tests-root-value = optional-string("tests-root", default-tests-root)
+  if tests-root-value.len() == 0 {
+    fail("\"tests-root\" must be a non-empty string")
+  }
+  let tests-root = resolve-path(base-dir, tests-root-value)
+  let test-name = if has-key("test") {
+    required-string("test")
+  } else if has-key("test-json") {
+    file-stem(resolve-path(base-dir, required-string("test-json")))
+  } else {
+    fail("missing \"test\"")
+  }
+  let test-path = if has-key("test") {
+    test-path-for(tests-root, test-name)
+  } else {
+    resolve-path(base-dir, required-string("test-json"))
+  }
   (
     path: path-string(manifest-path),
     base-dir: base-dir,
-    test-json: resolve-path(base-dir, required-string("test-json")),
+    test: test-name,
+    test-path: test-path,
+    test-json: test-path,
+    tests-root: tests-root,
     answer-folder: resolve-path(
       base-dir,
       optional-string("answer-folder", "risposte"),
     ),
     date: required-string("date"),
+    publish: optional-bool("publish", false),
     title: optional-string("title", none),
     subtitle: optional-string("subtitle", none),
     import-answers: optional-bool("import-answers", true),
