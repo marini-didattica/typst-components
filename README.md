@@ -375,7 +375,8 @@ score summary with the answer-file column.
 `manifest.json` supplies the test and the roster supplies the complete student
 list. Each set gets its own independent statistics section; students who sat a
 different test through a correction's `test` override are grouped under that
-test instead.
+test instead. The per-student tables are sorted alphabetically by surname and
+show the surname first, followed by the given names.
 
 ```typ
 #import "/typst-components/src/lib.typ": render-stats

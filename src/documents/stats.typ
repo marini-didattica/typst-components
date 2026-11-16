@@ -38,16 +38,16 @@
 
 #let student-word(count) = if count == 1 { "studente" } else { "studenti" }
 
-/// Abbreviate first names to initials, keeping the surname intact.
+/// Split a display name into first names and surname.
 ///
 /// The correction stem is surname-first (`dal-savio-daniele`), so the first
 /// slug segment identifies where the surname starts in the display name.
-#let short-name(row) = {
+#let name-parts(row) = {
   let words = row.name.split(" ").filter(word => word.len() > 0)
   let slug-parts = row.slug.split("-").filter(part => part.len() > 0)
 
   if words.len() <= 1 or slug-parts.len() == 0 {
-    return row.name
+    return (first: words, surname: ())
   }
 
   let surname-word = slug-parts.first()
@@ -64,19 +64,42 @@
   } else {
     surname-start
   }
-  let first-names = words.slice(0, surname-start)
-  let surname = words.slice(surname-start).join(" ")
 
-  if first-names.len() == 0 {
-    surname
+  (
+    first: words.slice(0, surname-start),
+    surname: words.slice(surname-start),
+  )
+}
+
+/// Display a student with the surname first and the first names last.
+#let full-name(row) = {
+  let parts = name-parts(row)
+  if parts.surname.len() == 0 {
+    row.name
   } else {
-    first-names.map(word => upper(word.slice(0, 1)) + ".").join(" ") + " " + surname
+    (parts.surname + parts.first).join(" ")
   }
 }
 
-/// Last-resort abbreviation: every name becomes an initial.
+/// Abbreviate first names to initials, keeping the surname intact and first.
+#let short-name(row) = {
+  let parts = name-parts(row)
+
+  if parts.surname.len() == 0 {
+    row.name
+  } else {
+    let surname = parts.surname.join(" ")
+    if parts.first.len() == 0 {
+      surname
+    } else {
+      surname + " " + parts.first.map(word => upper(word.slice(0, 1)) + ".").join(" ")
+    }
+  }
+}
+
+/// Last-resort abbreviation: every word of the surname-first name becomes an initial.
 #let initials-name(row) = {
-  row.name
+  full-name(row)
     .split(" ")
     .filter(word => word.len() > 0)
     .map(word => upper(word.slice(0, 1)) + ".")
@@ -200,7 +223,7 @@
             total: correction.total,
           )
         })
-        .sorted(key: row => row.name)
+        .sorted(key: row => lower(full-name(row)))
 
       let max-points = exam.at("max-points", default: none)
       set-data.push((
@@ -279,7 +302,7 @@
 
   let name-cell(row) = context {
     let available = 3.3cm - 5pt
-    let full = text(size: 7.5pt)[#row.name]
+    let full = text(size: 7.5pt)[#full-name(row)]
     if measure(full).width <= available {
       full
     } else {
