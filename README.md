@@ -298,9 +298,12 @@ correction defaults:
 overridden with the optional `tests-root` field. `answer-folder` defaults to
 `risposte` and is resolved relative to the manifest; the student slug is
 appended automatically. `publish` defaults to `false`; when the site build sees
-`"publish": true`, it generates `correzione.pdf` in every present student's
-private folder. `title`, `subtitle` and `import-answers` are optional defaults.
-The legacy `test-json` field still accepts an explicit path.
+`"publish": true`, it copies the student's answers into `le-tue-risposte/` and
+generates `correzione.pdf` in a folder named by `name` (default: the cohort
+folder, e.g. `prova-1`) inside every present student's private area. If that
+folder already exists the build fails, unless `"force-publish": true` replaces
+its whole content. `title`, `subtitle` and `import-answers` are optional
+defaults. The legacy `test-json` field still accepts an explicit path.
 
 ## JSON-driven corrections
 
