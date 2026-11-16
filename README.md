@@ -299,7 +299,7 @@ overridden with the optional `tests-root` field. `answer-folder` defaults to
 `risposte` and is resolved relative to the manifest; the student slug is
 appended automatically. `publish` defaults to `false`; when the site build sees
 `"publish": true`, it copies the student's answers into `le-tue-risposte/` and
-generates `correzione.pdf` in a folder named by `name` (default: the cohort
+generates `correzione.pdf` in a folder named by `name` (default: the correction
 folder, e.g. `prova-1`) inside every present student's private area. If that
 folder already exists the build fails, unless `"force-publish": true` replaces
 its whole content. `title`, `subtitle` and `import-answers` are optional
